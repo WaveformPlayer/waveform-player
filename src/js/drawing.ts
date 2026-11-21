@@ -57,9 +57,8 @@ function makeFill(ctx: CanvasRenderingContext2D, value: string | string[], canva
 }
 
 /**
- * Fill a bar rect, optionally with rounded caps (`barRadius`). Falls back to
- * a plain fillRect where `roundRect` is unavailable (older Safari) — square
- * bars, no error. Radii are clamped to half the rect's width/height so a
+ * Fill a bar rect, optionally with rounded caps (`barRadius`); square bars
+ * (radius 0) use a plain fillRect. Radii are clamped to half the rect's width/height so a
  * large `barRadius` never overflows a thin or short bar.
  * @private
  * @param ctx - Canvas context (current fillStyle is used).
@@ -72,7 +71,7 @@ function makeFill(ctx: CanvasRenderingContext2D, value: string | string[], canva
  */
 function fillBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radii: number | number[]): void {
     const any = Array.isArray(radii) ? radii.some(r => r > 0) : radii > 0;
-    if (any && typeof ctx.roundRect === 'function') {
+    if (any) {
         const max = Math.min(w / 2, Math.abs(h) / 2);
         const clampR = (r: number) => clamp(r, 0, max);
         ctx.beginPath();
@@ -513,20 +512,17 @@ export function drawSeekbar(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasEle
 }
 
 /**
- * Map of style names (and singular aliases) to their drawing functions.
+ * Map of style names to their drawing functions.
  * Six visually distinct styles including a simple seekbar; keys are matched
  * against `options.waveformStyle` by {@link draw}.
  * @type {Object.<string, function(CanvasRenderingContext2D, HTMLCanvasElement, number[], number, Object): void>}
  */
 export const DRAWING_STYLES = {
     'bars': drawBars,        // Classic vertical bars
-    'bar': drawBars,
     'mirror': drawMirror,    // SoundCloud-style symmetrical
     'line': drawLine,        // Smooth oscilloscope wave
     'blocks': drawBlocks,    // LED meter segmented
-    'block': drawBlocks,
     'dots': drawDots,        // Circular points
-    'dot': drawDots,
     'seekbar': drawSeekbar   // Simple progress bar (no waveform)
 };
 

@@ -87,8 +87,7 @@ export async function generateWaveform(
     // decode would break every subsequent player on the page.
     let audioContext: AudioContext | undefined;
     try {
-        const AudioCtx: typeof AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-        audioContext = new AudioCtx();
+        audioContext = new AudioContext();
         const response = await fetch(url);
         const arrayBuffer = await response.arrayBuffer();
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
