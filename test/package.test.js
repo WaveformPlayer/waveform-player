@@ -89,7 +89,8 @@ describe('entry point packaging', () => {
 		for (const target of [
 			'./dist/waveform-player-no-autoinit.esm.js',
 			'./dist/waveform-player-no-autoinit.cjs',
-			'./src/js/entry.js',
+			'./src/js/entry.ts',
+			'./src/js/index.ts',
 		]) {
 			expect(pkg.sideEffects, target).toContain(target);
 		}

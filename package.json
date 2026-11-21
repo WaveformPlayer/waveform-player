@@ -99,10 +99,11 @@
     "./dist/waveform-player-no-autoinit.cjs",
     "./dist/waveform-player.js",
     "./dist/waveform-player.min.js",
-    "./src/js/index.js",
-    "./src/js/entry.js"
+    "./src/js/index.ts",
+    "./src/js/entry.ts"
   ],
   "devDependencies": {
+    "@biomejs/biome": "^2.6.8",
     "concurrently": "^10.0.7",
     "esbuild": "^0.28.2",
     "jsdom": "^31.0.1",
