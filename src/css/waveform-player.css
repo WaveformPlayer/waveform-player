@@ -8,7 +8,6 @@ waveform-player {
 }
 
 waveform-player:not(:defined) {
-    display: block;
     min-height: var(--wfp-element-height, 90px);
 }
 
@@ -66,6 +65,27 @@ waveform-player:not(:defined) {
     position: relative;
 }
 
+/* Button alignment variants (buttonAlign → .waveform-align-*) */
+.waveform-track.waveform-align-top {
+    align-items: flex-start;
+}
+
+.waveform-track.waveform-align-top .waveform-btn {
+    margin-top: 5px;
+}
+
+.waveform-track.waveform-align-center {
+    align-items: center; /* Default */
+}
+
+.waveform-track.waveform-align-bottom {
+    align-items: flex-end;
+}
+
+.waveform-track.waveform-align-bottom .waveform-btn {
+    margin-bottom: 5px;
+}
+
 /* Play button.
    Size knob: set `--wfp-btn-size` (via the `buttonSize` option /
    `data-button-size`) to scale BOTH button styles — box AND glyph —
@@ -113,7 +133,6 @@ waveform-player:not(:defined) {
 }
 
 .waveform-btn-minimal:hover:not(:disabled) {
-    opacity: 1;
     transform: none;
 }
 
@@ -221,11 +240,6 @@ waveform-player:not(:defined) {
        value (height: 32 used to render at 60px, canvas stretched). */
     cursor: pointer;
     width: 100%;
-}
-
-/* Keyboard focus ring for the accessible seek slider */
-.waveform-container:focus-visible {
-    outline: 2px solid currentColor;
 }
 
 .waveform-container canvas {
@@ -352,22 +366,27 @@ waveform-player:not(:defined) {
     z-index: 10;
 }
 
-/* Marker tooltip */
-.waveform-marker-tooltip {
+/* Tooltips — the marker label and the hover time share one look. */
+.waveform-marker-tooltip,
+.waveform-hover-time {
     position: absolute;
     bottom: calc(100% + 4px);
-    left: 50%;
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 4px 8px;
+    color: #fff;
     border-radius: 4px;
     font-size: 11px;
     white-space: nowrap;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.2s;
     z-index: 1000;
+}
+
+/* Marker tooltip */
+.waveform-marker-tooltip {
+    left: 50%;
+    padding: 4px 8px;
+    transition: opacity 0.2s;
 }
 
 .waveform-marker:hover .waveform-marker-tooltip {
@@ -386,20 +405,9 @@ waveform-player:not(:defined) {
 /* Hover-time tooltip (showHoverTime) — follows the pointer over the waveform,
    showing the time at that position. */
 .waveform-hover-time {
-    position: absolute;
-    bottom: calc(100% + 4px);
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.9);
-    color: #fff;
     padding: 3px 7px;
-    border-radius: 4px;
-    font-size: 11px;
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
     transition: opacity 0.15s;
-    z-index: 1000;
 }
 
 /* Draggable seek handle — a DOM circle over the playhead, shown only on
@@ -420,24 +428,14 @@ waveform-player:not(:defined) {
     pointer-events: none;
     z-index: 6;
 }
+
 .waveform-seek-handle.is-visible {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
 }
+
 .waveform-seek-handle.is-active {
     transform: translate(-50%, -50%) scale(1.25);
-}
-
-/* Focus styles for accessibility */
-.waveform-btn:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-}
-
-.waveform-marker:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 1px;
-    width: 4px;
 }
 
 /* Playback speed control */
@@ -496,7 +494,7 @@ waveform-player:not(:defined) {
 
 .speed-option:hover {
     background: rgba(255, 255, 255, 0.1);
-    color: white;
+    color: #fff;
 }
 
 .speed-option.active {
@@ -536,11 +534,6 @@ waveform-player:not(:defined) {
     background: rgba(127, 127, 127, 0.18);
 }
 
-.waveform-ctrl:focus-visible {
-    outline: 2px solid var(--wfp-accent);
-    outline-offset: 1px;
-}
-
 /* Volume: mute toggle + slider. The toggle swaps its icon with its state. */
 .waveform-volume {
     display: inline-flex;
@@ -569,10 +562,30 @@ waveform-player:not(:defined) {
     cursor: pointer;
 }
 
-.waveform-player.waveform-focused {
-    outline: 2px solid var(--wfp-accent);
+/* ==========================================================================
+   Keyboard focus — :focus-visible rings, so a click stays quiet while Tab
+   navigation shows a clear indicator.
+   ========================================================================== */
+
+/* The accessible seek slider */
+.waveform-container:focus-visible {
+    outline: 2px solid currentColor;
+}
+
+.waveform-btn:focus-visible {
+    outline: 2px solid currentColor;
     outline-offset: 2px;
-    border-radius: 4px;
+}
+
+.waveform-marker:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 1px;
+    width: 4px;
+}
+
+.waveform-ctrl:focus-visible {
+    outline: 2px solid var(--wfp-accent);
+    outline-offset: 1px;
 }
 
 /* Remove focus outline when clicking, but keep for keyboard navigation */
@@ -584,6 +597,16 @@ waveform-player:not(:defined) {
 .waveform-player:focus-visible {
     outline: 1px solid var(--wfp-accent);
     outline-offset: 1px;
+}
+
+/* .waveform-focused is a class hook for authors who want class-based focus
+   styling (the player never sets it). No ring by default, since we're using
+   :focus-visible; it must stay after the :focus-visible rule to keep the
+   ring off. */
+.waveform-player.waveform-focused {
+    outline: none;
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 /* ==========================================================================
@@ -602,32 +625,6 @@ waveform-player:not(:defined) {
     flex: 0 1 auto;
     align-items: center;
     text-align: center;
-}
-
-/* Remove the class-based focus indicator since we're using :focus-visible */
-.waveform-player.waveform-focused {
-    outline: none;
-}
-
-/* Button alignment variants */
-.waveform-track.waveform-align-top {
-    align-items: flex-start;
-}
-
-.waveform-track.waveform-align-top .waveform-btn {
-    margin-top: 5px;
-}
-
-.waveform-track.waveform-align-center {
-    align-items: center; /* Default */
-}
-
-.waveform-track.waveform-align-bottom {
-    align-items: flex-end;
-}
-
-.waveform-track.waveform-align-bottom .waveform-btn {
-    margin-bottom: 5px;
 }
 
 /* Responsive adjustments */

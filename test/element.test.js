@@ -246,7 +246,8 @@ describe('stylesheet', () => {
 		expect(css).toMatch(/waveform-player\s*\{\s*display:\s*block;/);
 		const before = css.match(/waveform-player:not\(:defined\)\s*\{([^}]*)\}/);
 		expect(before).not.toBeNull();
-		expect(before[1]).toMatch(/display:\s*block/);
+		// No display of its own: the plain `waveform-player` rule above matches
+		// the element before upgrade too, so it is already a block.
 		expect(before[1]).toMatch(/min-height:\s*var\(--wfp-element-height,\s*90px\)/);
 	});
 });
