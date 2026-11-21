@@ -142,6 +142,13 @@ export class WaveformPlayer extends EventTarget {
     /** Initialize every `[data-waveform-player]` in `root` (or the document). Attached by entry.ts. */
     declare static init: (root?: Document | Element) => void;
 
+    /**
+     * Register the `<waveform-player>` element (default tag name `waveform-player`).
+     * The default entry does this on import; this reaches it from a `<script>`
+     * page that opted out of auto-init. Attached by entry.ts.
+     */
+    declare static defineElement: (name?: string) => CustomElementConstructor | undefined;
+
     /** @internal The player that owns the Media Session controls. */
     declare static _sessionOwner: WaveformPlayer | null | undefined;
 

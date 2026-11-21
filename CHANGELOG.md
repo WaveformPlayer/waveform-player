@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.0] — Unreleased
+
+### Added
+
+- **`WaveformPlayer.defineElement(name?)`** registers the `<waveform-player>`
+  element from the global — the way in for a `<script>` page that opted out of
+  auto-init (`<html data-waveform-autoinit="false">`), which has no ES module
+  import to reach `defineWaveformPlayerElement()`.
+
 ## [2.0.0] — 2026-11-21
 
 ### Added

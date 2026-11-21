@@ -3942,6 +3942,7 @@
     scope.querySelectorAll("[data-waveform-player]").forEach(initElement);
   }
   WaveformPlayer.init = autoInit;
+  WaveformPlayer.defineElement = defineWaveformPlayerElement;
   if (isBrowser()) {
     window.WaveformPlayer = WaveformPlayer;
   }

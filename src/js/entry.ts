@@ -23,6 +23,7 @@
 
 // Import the main class
 import {WaveformPlayer} from './core.js';
+import {defineWaveformPlayerElement} from './element.js';
 import type {WaveformPlayerEventMap, WaveformPlayerUtils} from './types.js';
 
 declare global {
@@ -146,6 +147,11 @@ function autoInit(root: Document | Element = document): void {
  * @type {typeof autoInit}
  */
 WaveformPlayer.init = autoInit;
+
+// `defineWaveformPlayerElement()` as a static too, so a CDN page that opted out
+// of auto-init (no ES module import to reach the named export) can register
+// the tag itself: `WaveformPlayer.defineElement()`.
+WaveformPlayer.defineElement = defineWaveformPlayerElement;
 
 // For CDN/browser usage: expose the class as a global so it is reachable from a
 // plain <script> tag without an ES module loader. Kept on the no-autoinit path

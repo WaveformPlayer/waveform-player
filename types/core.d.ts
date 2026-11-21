@@ -29,6 +29,12 @@ export declare class WaveformPlayer extends EventTarget {
     static readonly utils: WaveformPlayerUtils;
     /** Initialize every `[data-waveform-player]` in `root` (or the document). Attached by entry.ts. */
     static init: (root?: Document | Element) => void;
+    /**
+     * Register the `<waveform-player>` element (default tag name `waveform-player`).
+     * The default entry does this on import; this reaches it from a `<script>`
+     * page that opted out of auto-init. Attached by entry.ts.
+     */
+    static defineElement: (name?: string) => CustomElementConstructor | undefined;
     readonly options: Required<WaveformPlayerOptions>;
     readonly id: string;
     readonly container: HTMLElement;

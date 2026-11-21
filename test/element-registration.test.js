@@ -36,6 +36,16 @@ describe('element registration', () => {
 		expect(define).not.toHaveBeenCalled();
 	});
 
+	it('an opted-out CDN page can register the tag through WaveformPlayer.defineElement()', async () => {
+		// A <script> page has no named export to reach; the global's static is the way in.
+		document.documentElement.dataset.waveformAutoinit = 'false';
+		const define = vi.spyOn(customElements, 'define');
+		await fresh('../src/js/index.js');
+		expect(define).not.toHaveBeenCalled();
+		window.WaveformPlayer.defineElement('waveform-player-optout');
+		expect(define).toHaveBeenCalledWith('waveform-player-optout', expect.any(Function));
+	});
+
 	it('the default entry registers <waveform-player>, which then initialises server-rendered markup', async () => {
 		document.body.innerHTML = '<waveform-player src="/a.mp3" audio-mode="external"></waveform-player>';
 		const define = vi.spyOn(customElements, 'define');
