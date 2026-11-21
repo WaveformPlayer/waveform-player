@@ -271,8 +271,7 @@ function parseColorValue(value: string): string | string[] {
  *
  * Several attributes are shorthand aliases of a canonical long form: `data-src`
  * → `url`, `data-style` → `waveformStyle`. When both are present the canonical
- * long form is applied last and therefore wins. `data-color` and `data-theme`
- * are retained as legacy aliases for `waveformColor` and `colorPreset`.
+ * long form is applied last and therefore wins.
  * Colour attributes that accept gradients (`waveformColor`, `progressColor`)
  * are passed through {@link parseColorValue} so a JSON stop array is expanded.
  *
@@ -343,12 +342,6 @@ export function parseDataAttributes(element: HTMLElement): Record<string, any> {
     if (element.dataset.buttonStyle) options.buttonStyle = element.dataset.buttonStyle;
     setLength('buttonSize');
     setLength('buttonRadius');
-
-    // Legacy names first, so the canonical attribute below wins when both are
-    // set — the same rule as `data-style` / `data-src`. `data-color` takes the
-    // same values as `data-waveform-color`, gradient stop arrays included.
-    if (element.dataset.color) options.waveformColor = parseColorValue(element.dataset.color);
-    if (element.dataset.theme) options.colorPreset = element.dataset.theme;
 
     // Color preset
     if (element.dataset.colorPreset) options.colorPreset = element.dataset.colorPreset;
