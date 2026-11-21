@@ -22,6 +22,11 @@ All notable changes to this project will be documented in this file.
 
 ### Removed
 
+- **The CommonJS builds** (`waveform-player.cjs` and
+  `waveform-player-no-autoinit.cjs`) and the `require` export conditions.
+  `require('@arraypress/waveform-player')` still works: Node 22.12+ loads the
+  ES module build through `require()`, and `engines` now says `>=22.12`. The
+  `module` field is gone too; `exports` covers every current bundler.
 - **The `data-color` and `data-theme` attributes.** They were 1.x aliases. Use
   `data-waveform-color` and `data-color-preset`.
 - **The `webkitAudioContext` fallback** for BPM detection. Every supported

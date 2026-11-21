@@ -29,11 +29,10 @@ describe('entry point packaging', () => {
 		expect(pkg.name).toBe('@arraypress/waveform-player');
 	});
 
-	it('exposes ./no-autoinit with a condition for every consumer', () => {
+	it('exposes ./no-autoinit as an ES module only', () => {
 		expect(pkg.exports['./no-autoinit']).toEqual({
 			types: './types/entry.d.ts',
 			import: './dist/waveform-player-no-autoinit.esm.js',
-			require: './dist/waveform-player-no-autoinit.cjs',
 			default: './dist/waveform-player-no-autoinit.esm.js',
 		});
 	});
@@ -43,13 +42,12 @@ describe('entry point packaging', () => {
 		// import-time scan, so building this bundle from index.js would ship
 		// something that still scans under a name promising it doesn't.
 		expect(entryOf(pkg.scripts['build:no-autoinit:esm'])).toBe('src/js/entry.ts');
-		expect(entryOf(pkg.scripts['build:no-autoinit:cjs'])).toBe('src/js/entry.ts');
 	});
 
 	it('still builds the default bundles from index.ts', () => {
 		// The mirror image: entry.js here would silently delete auto-init for
 		// every existing consumer.
-		for (const name of ['build:iife', 'build:esm', 'build:cjs', 'build:min']) {
+		for (const name of ['build:iife', 'build:esm', 'build:min']) {
 			expect(entryOf(pkg.scripts[name]), name).toBe('src/js/index.ts');
 		}
 	});
@@ -57,13 +55,19 @@ describe('entry point packaging', () => {
 	it('writes each bundle to the path its exports condition points at', () => {
 		const built = {
 			'./dist/waveform-player.esm.js': 'build:esm',
-			'./dist/waveform-player.cjs': 'build:cjs',
 			'./dist/waveform-player-no-autoinit.esm.js': 'build:no-autoinit:esm',
-			'./dist/waveform-player-no-autoinit.cjs': 'build:no-autoinit:cjs',
 		};
 
 		for (const [target, script] of Object.entries(built)) {
 			expect(`./${outfileOf(pkg.scripts[script])}`, script).toBe(target);
+		}
+	});
+
+	it('ships no CommonJS build (2.0: require() of the ES module works on Node 22.12+)', () => {
+		expect(pkg.main).toBe('dist/waveform-player.esm.js');
+		expect(Object.keys(pkg.scripts).filter((k) => k.includes('cjs'))).toEqual([]);
+		for (const entry of Object.values(pkg.exports)) {
+			if (typeof entry === 'object') expect(entry).not.toHaveProperty('require');
 		}
 	});
 
@@ -72,7 +76,6 @@ describe('entry point packaging', () => {
 		// tarball whose subpath points at a file that was never written.
 		expect(pkg.scripts.build).toContain('build:no-autoinit');
 		expect(pkg.scripts['build:no-autoinit']).toContain('build:no-autoinit:esm');
-		expect(pkg.scripts['build:no-autoinit']).toContain('build:no-autoinit:cjs');
 	});
 
 	it('ships the declaration file the subpath resolves to', () => {
@@ -88,7 +91,6 @@ describe('entry point packaging', () => {
 		// `import '@arraypress/waveform-player/no-autoinit'` entirely.
 		for (const target of [
 			'./dist/waveform-player-no-autoinit.esm.js',
-			'./dist/waveform-player-no-autoinit.cjs',
 			'./src/js/entry.ts',
 			'./src/js/index.ts',
 		]) {
