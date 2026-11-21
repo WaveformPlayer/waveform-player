@@ -3,6 +3,7 @@
  * @description Color presets and default options for WaveformPlayer
  */
 
+import type {WaveformMarker} from './types.js';
 import {
     parseColor,
     perceivedBrightness,
@@ -530,7 +531,7 @@ function warnInvalid(key: string, value: any) {
  * @param value - Candidate marker list.
  * @returns Renderable markers (empty when nothing survives).
  */
-export function normalizeMarkers(value: any): Record<string, any>[] {
+export function normalizeMarkers(value: any): WaveformMarker[] {
     const list = toArray(value);
     if (!list) {
         if (value != null) warnInvalid('markers', value);

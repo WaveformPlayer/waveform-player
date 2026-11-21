@@ -3,6 +3,7 @@
  * @description Main WaveformPlayer class
  */
 
+import type {WaveformPlayerOptions, WaveformPlayerUtils, WaveformTrackDetail} from './types.js';
 import {draw} from './drawing.js';
 import {generateWaveform, generatePlaceholderWaveform} from './audio.js';
 import {
@@ -75,11 +76,11 @@ const INTERACTIVE_ELEMENTS = 'button, a[href], input, [role="slider"]';
  * Accessible name for the speed button: the visible rate first, then the
  * `speedLabel` text — "1.5x Playback speed". A fixed label would hide the rate
  * the button shows (WCAG 2.5.3 Label in Name, axe `label-content-name-mismatch`).
- * @param {number} rate - Current playback rate.
- * @param {string} [label] - The `speedLabel` option.
- * @returns {string}
+ * @param rate - Current playback rate.
+ * @param label - The `speedLabel` option.
+ * @returns 
  */
-function speedButtonLabel(rate, label) {
+function speedButtonLabel(rate: number, label?: string): string {
     return label ? `${rate}x ${label}` : `${rate}x`;
 }
 
@@ -88,14 +89,81 @@ function speedButtonLabel(rate, label) {
  * @class
  */
 export class WaveformPlayer {
-    /** @type {Map<string, WaveformPlayer>} */
-    static instances = new Map();
+    static instances: Map<string, WaveformPlayer> = new Map();
 
-    /** @type {WaveformPlayer|null} */
-    static currentlyPlaying = null;
+    static currentlyPlaying: WaveformPlayer | null = null;
 
-    /** Audio URLs already warned about lacking byte-range support. @private */
-    static _noRangeWarned = new Set();
+    /** Audio URLs already warned about lacking byte-range support. @internal */
+    static _noRangeWarned: Set<string> = new Set();
+
+    /** Shared helpers, attached by entry.ts. */
+    declare static utils: WaveformPlayerUtils;
+
+    /** Initialize every `[data-waveform-player]` in `root` (or the document). Attached by entry.ts. */
+    declare static init: (root?: Document | Element) => void;
+
+    /** @internal The player that owns the Media Session controls. */
+    declare static _sessionOwner: WaveformPlayer | null | undefined;
+
+    /** @internal One page-wide watcher re-themes auto-themed players when the page scheme flips. */
+    declare static _themeWatch: { obs: MutationObserver; mq: MediaQueryList | null; refresh: () => void } | null | undefined;
+
+    // Public state (the documented surface). `declare` emits nothing: these are
+    // assigned in the constructor exactly as before.
+    declare readonly options: Required<WaveformPlayerOptions>;
+    declare readonly id: string;
+    declare readonly container: HTMLElement;
+    declare progress: number;
+    declare isPlaying: boolean;
+
+    /** @internal */ declare audio: HTMLAudioElement | null;
+    /** @internal */ declare canvas: HTMLCanvasElement | null;
+    /** @internal */ declare ctx: CanvasRenderingContext2D | null;
+    /** @internal */ declare waveformData: number[];
+    /** @internal */ declare isLoading: boolean;
+    /** @internal */ declare hasError: boolean;
+    /** @internal */ declare isDestroying: boolean;
+    /** @internal */ declare detectedBPM: number | null;
+    /** @internal */ declare updateTimer: number | null;
+    /** @internal */ declare resizeObserver: ResizeObserver | null;
+    /** @internal */ declare resizeHandler: (...args: any[]) => any;
+    /** @internal */ declare playBtn: HTMLButtonElement | null;
+    /** @internal */ declare titleEl: HTMLElement | null;
+    /** @internal */ declare artistEl: HTMLElement | null;
+    /** @internal */ declare artworkEl: HTMLImageElement | null;
+    /** @internal */ declare currentTimeEl: HTMLElement | null;
+    /** @internal */ declare totalTimeEl: HTMLElement | null;
+    /** @internal */ declare bpmEl: HTMLElement | null;
+    /** @internal */ declare bpmValueEl: HTMLElement | null;
+    /** @internal */ declare loadingEl: HTMLElement | null;
+    /** @internal */ declare errorEl: HTMLElement | null;
+    /** @internal */ declare surfaceEl: HTMLElement | null;
+    /** @internal */ declare markersContainer: HTMLElement | null;
+    /** @internal */ declare speedBtn: HTMLButtonElement | null;
+    /** @internal */ declare speedMenu: HTMLElement | null;
+    /** @internal */ declare seekEl: HTMLElement | null;
+    /** @internal */ declare seekHandleEl: HTMLElement | null;
+    /** @internal */ declare hoverTimeEl: HTMLElement | null;
+    /** @internal */ declare _ac: AbortController;
+    /** @internal */ declare _activeMarkerIndex: number;
+    /** @internal */ declare _autoTheme: boolean;
+    /** @internal */ declare _cacheSeekTime: number;
+    /** @internal */ declare _cancelCacheSeek: (() => void) | null;
+    /** @internal */ declare _dragFrom: number;
+    /** @internal */ declare _dragging: boolean;
+    /** @internal */ declare _extDuration: number;
+    /** @internal */ declare _extEnded: boolean;
+    /** @internal */ declare _frameAt: number;
+    /** @internal */ declare _handleNear: boolean;
+    /** @internal */ declare _loadId: number;
+    /** @internal */ declare _markerLabelTimer: ReturnType<typeof setTimeout> | null;
+    /** @internal */ declare _presetKeys: string[];
+    /** @internal */ declare _readyTimer: ReturnType<typeof setTimeout>;
+    /** @internal */ declare _scheme: string;
+    /** @internal */ declare _seekHover: boolean;
+    /** @internal */ declare _seekReload: { wasPlaying: boolean } | null;
+    /** @internal */ declare _seekReloadedUrl: string;
+    /** @internal */ declare _suppressClick: boolean;
 
     /**
      * Create a new WaveformPlayer instance.
@@ -114,11 +182,11 @@ export class WaveformPlayer {
      * @throws {Error} If the container element cannot be found.
      * @fires WaveformPlayer#waveformplayer:ready
      */
-    constructor(container, options = {}) {
+    constructor(container: string | HTMLElement, options: WaveformPlayerOptions = {}) {
         // Resolve container
-        this.container = typeof container === 'string'
+        this.container = (typeof container === 'string'
             ? document.querySelector(container)
-            : container;
+            : container) as HTMLElement;
 
         if (!this.container) {
             throw new Error('[WaveformPlayer] Container element not found');
@@ -138,7 +206,7 @@ export class WaveformPlayer {
         // the single point where an unusable value (non-array `playbackRates`,
         // NaN geometry, an unrecognised enum) resolves to its default instead of
         // reaching a consumer that assumes a shape it never checked.
-        this.options = normalizeOptions(mergeOptions(DEFAULT_OPTIONS, dataOptions, userOptions));
+        this.options = normalizeOptions(mergeOptions(DEFAULT_OPTIONS, dataOptions, userOptions)) as Required<WaveformPlayerOptions>;
 
         // Apply color preset (auto-detect if not specified). Detection reads
         // the backdrop behind THIS container, so a player dropped into a themed
@@ -156,8 +224,8 @@ export class WaveformPlayer {
 
         // Apply preset colors only if individual colors aren't explicitly set
         for (const [key, value] of Object.entries(preset)) {
-            if (this.options[key] === null || this.options[key] === undefined) {
-                this.options[key] = value;
+            if ((this.options as Record<string, any>)[key] === null || (this.options as Record<string, any>)[key] === undefined) {
+                (this.options as Record<string, any>)[key] = value;
                 this._presetKeys.push(key);
             }
         }
@@ -236,13 +304,13 @@ export class WaveformPlayer {
      * container, returning the event so cancelable (request-*) events can have
      * their `defaultPrevented` checked. Single source of truth for the event
      * shape — every player event bubbles and carries the supplied detail.
-     * @param {string} type - Full event type, e.g. `'waveformplayer:play'`.
-     * @param {Object} detail - Event detail payload.
-     * @param {boolean} [cancelable=false] - Whether the event is cancelable.
-     * @returns {CustomEvent} The dispatched event.
+     * @param type - Full event type, e.g. `'waveformplayer:play'`.
+     * @param detail - Event detail payload.
+     * @param cancelable - Whether the event is cancelable.
+     * @returns The dispatched event.
      * @private
      */
-    _emit(type, detail, cancelable = false) {
+    _emit(type: string, detail: Record<string, any>, cancelable: boolean = false): CustomEvent {
         const event = new CustomEvent(type, { bubbles: true, cancelable, detail });
         this.container.dispatchEvent(event);
         return event;
@@ -253,11 +321,11 @@ export class WaveformPlayer {
      * `waveformplayer:request-seek` and, unless the controller calls
      * `preventDefault()`, optimistically advance the local progress overlay so
      * the canvas repaints at once. Shared by the keyboard slider and canvas click.
-     * @param {number} percent - Target position as a 0..1 fraction.
+     * @param percent - Target position as a 0..1 fraction.
      * @private
      * @fires WaveformPlayer#waveformplayer:request-seek
      */
-    _requestSeek(percent) {
+    _requestSeek(percent: number) {
         const evt = this._emit('waveformplayer:request-seek', { ...this._buildTrackDetail(), percent }, true);
         if (!evt.defaultPrevented) {
             this.progress = percent;
@@ -449,30 +517,30 @@ export class WaveformPlayer {
 `;
 
         // Get references
-        this.playBtn = this.container.querySelector('.waveform-btn');
-        this.canvas = this.container.querySelector('canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.titleEl = this.container.querySelector('.waveform-title');
-        this.artistEl = this.container.querySelector('.waveform-artist');
+        this.playBtn = this.container.querySelector<HTMLButtonElement>('.waveform-btn');
+        this.canvas = this.container.querySelector<HTMLCanvasElement>('canvas');
+        this.ctx = this.canvas!.getContext('2d');
+        this.titleEl = this.container.querySelector<HTMLElement>('.waveform-title');
+        this.artistEl = this.container.querySelector<HTMLElement>('.waveform-artist');
         // One reference for either placement — artworkPosition is structural
         // (like showInfo/buttonStyle) and fixed for the player's lifetime, so
         // the image only ever has one home.
-        this.artworkEl = this.container.querySelector('.waveform-artwork, .waveform-btn-artwork');
+        this.artworkEl = this.container.querySelector<HTMLImageElement>('.waveform-artwork, .waveform-btn-artwork');
         this.bindArtworkFallback(this.artworkEl);
-        this.currentTimeEl = this.container.querySelector('.time-current');
-        this.totalTimeEl = this.container.querySelector('.time-total');
-        this.bpmEl = this.container.querySelector('.waveform-bpm');
-        this.bpmValueEl = this.container.querySelector('.bpm-value');
-        this.loadingEl = this.container.querySelector('.waveform-loading');
-        this.errorEl = this.container.querySelector('.waveform-error');
+        this.currentTimeEl = this.container.querySelector<HTMLElement>('.time-current');
+        this.totalTimeEl = this.container.querySelector<HTMLElement>('.time-total');
+        this.bpmEl = this.container.querySelector<HTMLElement>('.waveform-bpm');
+        this.bpmValueEl = this.container.querySelector<HTMLElement>('.bpm-value');
+        this.loadingEl = this.container.querySelector<HTMLElement>('.waveform-loading');
+        this.errorEl = this.container.querySelector<HTMLElement>('.waveform-error');
         // Markers sit BESIDE the seek slider, not inside it: they're buttons,
         // and a focusable control nested in role="slider" is unreachable to
         // assistive tech (axe nested-interactive, WCAG 4.1.2). `.waveform-surface`
         // is the shared positioned box that lays them over the waveform.
-        this.surfaceEl = this.container.querySelector('.waveform-surface');
-        this.markersContainer = this.container.querySelector('.waveform-markers');
-        this.speedBtn = this.container.querySelector('.speed-btn');
-        this.speedMenu = this.container.querySelector('.speed-menu');
+        this.surfaceEl = this.container.querySelector<HTMLElement>('.waveform-surface');
+        this.markersContainer = this.container.querySelector<HTMLElement>('.waveform-markers');
+        this.speedBtn = this.container.querySelector<HTMLButtonElement>('.speed-btn');
+        this.speedMenu = this.container.querySelector<HTMLElement>('.speed-menu');
 
         // Set canvas size
         this.resizeCanvas();
@@ -484,10 +552,10 @@ export class WaveformPlayer {
     /**
      * Bind the artwork error fallback to an image element.
      *
-     * @param {HTMLImageElement|null} img - Artwork image element.
+     * @param img - Artwork image element.
      * @private
      */
-    bindArtworkFallback(img) {
+    bindArtworkFallback(img: HTMLImageElement | null) {
         if (!img) return;
 
         // Fall back to the placeholder tile if the cover URL fails to load.
@@ -499,10 +567,10 @@ export class WaveformPlayer {
     /**
      * Create an artwork image element matching the initial player markup.
      *
-     * @returns {HTMLImageElement} Artwork image element.
+     * @returns Artwork image element.
      * @private
      */
-    createArtworkElement() {
+    createArtworkElement(): HTMLImageElement {
         const img = document.createElement('img');
         img.className = 'waveform-artwork';
         img.style.width = '40px';
@@ -521,10 +589,10 @@ export class WaveformPlayer {
      * `aria-label`, so the cover is hidden from assistive tech rather than
      * given a competing one. Sizing and clipping are the stylesheet's job.
      *
-     * @returns {HTMLImageElement} Play-button artwork image element.
+     * @returns Play-button artwork image element.
      * @private
      */
-    createButtonArtworkElement() {
+    createButtonArtworkElement(): HTMLImageElement {
         const img = document.createElement('img');
         img.className = 'waveform-btn-artwork';
         img.alt = '';
@@ -536,10 +604,10 @@ export class WaveformPlayer {
     /**
      * Create an artist text element matching the initial player markup.
      *
-     * @returns {HTMLSpanElement} Artist text element.
+     * @returns Artist text element.
      * @private
      */
-    createArtistElement() {
+    createArtistElement(): HTMLSpanElement {
         const span = document.createElement('span');
         span.className = 'waveform-artist';
         return span;
@@ -548,10 +616,10 @@ export class WaveformPlayer {
     /**
      * Reconcile artist metadata and markup for the current track.
      *
-     * @param {string|null} artist - Artist text, or a falsy value to remove it.
+     * @param artist - Artist text, or a falsy value to remove it.
      * @private
      */
-    syncArtist(artist) {
+    syncArtist(artist: string | null) {
         this.options.artist = artist || null;
 
         if (!this.options.showInfo) return;
@@ -581,10 +649,10 @@ export class WaveformPlayer {
      * `waveform-btn-has-artwork` class is what turns on the scrim + glyph
      * treatment, so it tracks the image's presence exactly.
      *
-     * @param {string|null} artwork - Artwork image URL, or a falsy value to remove it.
+     * @param artwork - Artwork image URL, or a falsy value to remove it.
      * @private
      */
-    syncButtonArtwork(artwork) {
+    syncButtonArtwork(artwork: string | null) {
         // Nothing to hang the cover on when the transport is hidden.
         if (!this.playBtn) return;
 
@@ -611,12 +679,12 @@ export class WaveformPlayer {
      * info row (default) or the play button — and only ever one of them, so a
      * cover can't render twice.
      *
-     * @param {string|null} artwork - Artwork image URL, or a falsy value to remove artwork.
-     * @param {string} artworkAlt - Artwork alt text. Info-row placement only:
+     * @param artwork - Artwork image URL, or a falsy value to remove artwork.
+     * @param artworkAlt - Artwork alt text. Info-row placement only:
      *   button artwork is decorative and defers to the button's own label.
      * @private
      */
-    syncArtwork(artwork, artworkAlt = '') {
+    syncArtwork(artwork: string | null, artworkAlt: string = '') {
         this.options.artwork = artwork || null;
         this.options.artworkAlt = artworkAlt || '';
 
@@ -709,18 +777,18 @@ export class WaveformPlayer {
      * @private
      */
     initSpeedControls() {
-        const speedBtn = this.container.querySelector('.speed-btn');
-        const speedMenu = this.container.querySelector('.speed-menu');
+        const speedBtn = this.container.querySelector<HTMLButtonElement>('.speed-btn');
+        const speedMenu = this.container.querySelector<HTMLElement>('.speed-menu');
 
         if (!speedBtn || !speedMenu) return;
 
-        const options = () => Array.from(speedMenu.querySelectorAll('.speed-option'));
+        const options = () => Array.from(speedMenu.querySelectorAll<HTMLElement>('.speed-option'));
         const isOpen = () => speedMenu.style.display !== 'none';
 
         // Open/close the menu (a proper role="menu"): keep aria-expanded in sync
         // and, on open, move focus into the menu — the checked rate, else the
         // first option — so arrow keys drive it.
-        const setSpeedMenu = (open) => {
+        const setSpeedMenu = (open: boolean) => {
             speedMenu.style.display = open ? 'block' : 'none';
             speedBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
             if (open) {
@@ -729,13 +797,13 @@ export class WaveformPlayer {
             }
         };
 
-        const focusOption = (i) => {
+        const focusOption = (i: number) => {
             const opts = options();
             if (opts.length) opts[(i + opts.length) % opts.length].focus();
         };
 
-        const selectOption = (opt) => {
-            this.setPlaybackRate(parseFloat(opt.dataset.rate));
+        const selectOption = (opt: HTMLElement) => {
+            this.setPlaybackRate(parseFloat(opt.dataset.rate!));
             setSpeedMenu(false);
             speedBtn.focus();
         };
@@ -752,17 +820,17 @@ export class WaveformPlayer {
         // Pointer + native-button (Enter/Space on an option) selection.
         speedMenu.addEventListener('click', (e) => {
             e.stopPropagation();
-            const opt = e.target.closest('.speed-option');
+            const opt = (e.target as Element).closest<HTMLElement>('.speed-option');
             if (opt) selectOption(opt);
         }, {signal: this._ac.signal});
 
         // Keyboard menu: arrows/Home/End roam, Enter/Space select (via the
         // native button click above), Escape/Tab close. ArrowDown/Up on the
         // trigger opens and focuses the first/checked option.
-        speedBtn.closest('.waveform-speed')?.addEventListener('keydown', (e) => {
+        speedBtn.closest<HTMLElement>('.waveform-speed')?.addEventListener('keydown', (e: KeyboardEvent) => {
             const opts = options();
             const focused = this._activeElement();
-            const i = opts.indexOf(focused);
+            const i = opts.indexOf(focused as HTMLElement);
             if (!isOpen()) {
                 if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && focused === speedBtn) {
                     e.preventDefault();
@@ -800,11 +868,11 @@ export class WaveformPlayer {
      * root `document.activeElement` is the shadow *host*, so comparing it with
      * the container (or a control) never matches and every keyboard shortcut
      * silently stops; the root node's `activeElement` is the real one.
-     * @returns {Element|null}
+     * @returns 
      * @private
      */
-    _activeElement() {
-        return this.container.getRootNode().activeElement ?? document.activeElement;
+    _activeElement(): Element | null {
+        return (this.container.getRootNode() as Document | ShadowRoot).activeElement ?? document.activeElement;
     }
 
     initKeyboardControls() {
@@ -816,7 +884,7 @@ export class WaveformPlayer {
         // link, slider, input): those own their focus, so pulling it onto the
         // container would move focus off the control the user just activated.
         this.container.addEventListener('click', (e) => {
-            if (e.target.closest(INTERACTIVE_ELEMENTS)) return;
+            if ((e.target as Element).closest(INTERACTIVE_ELEMENTS)) return;
             // Remove focus from all other players
             WaveformPlayer.getAllInstances().forEach(player => {
                 if (player !== this) {
@@ -837,7 +905,7 @@ export class WaveformPlayer {
 
             const key = e.key;
             const hasAudio = !!this.audio;
-            const currentTime = hasAudio ? this.audio.currentTime : 0;
+            const currentTime = hasAudio ? this.audio!.currentTime : 0;
 
             // Handle number keys 0-9 for seeking
             if (hasAudio && key >= '0' && key <= '9') {
@@ -849,15 +917,15 @@ export class WaveformPlayer {
             // Handle other keys. Space always works (dispatches
             // request-play in external mode); audio-bound keys only
             // when we own the <audio> element.
-            const actions = {
+            const actions: Record<string, () => void> = {
                 ' ': () => this.togglePlay(),
             };
             if (hasAudio) {
-                actions['ArrowLeft']  = () => this.seekTo(clamp(currentTime - 5, 0, this.audio.duration));
-                actions['ArrowRight'] = () => this.seekTo(clamp(currentTime + 5, 0, this.audio.duration));
-                actions['ArrowUp']    = () => this.setVolume(clamp(this.audio.volume + 0.1));
-                actions['ArrowDown']  = () => this.setVolume(clamp(this.audio.volume - 0.1));
-                actions['m'] = actions['M'] = () => this.audio.muted = !this.audio.muted;
+                actions['ArrowLeft']  = () => this.seekTo(clamp(currentTime - 5, 0, this.audio!.duration));
+                actions['ArrowRight'] = () => this.seekTo(clamp(currentTime + 5, 0, this.audio!.duration));
+                actions['ArrowUp']    = () => this.setVolume(clamp(this.audio!.volume + 0.1));
+                actions['ArrowDown']  = () => this.setVolume(clamp(this.audio!.volume - 0.1));
+                actions['m'] = actions['M'] = () => this.audio!.muted = !this.audio!.muted;
             }
 
             if (actions[key]) {
@@ -879,7 +947,7 @@ export class WaveformPlayer {
     initSeekControl() {
         if (!this.options.accessibleSeek) return;
 
-        this.seekEl = this.container.querySelector('.waveform-container');
+        this.seekEl = this.container.querySelector<HTMLElement>('.waveform-container');
         if (!this.seekEl) return;
 
         this.seekEl.setAttribute('role', 'slider');
@@ -941,10 +1009,10 @@ export class WaveformPlayer {
 
     /**
      * Total seekable duration in seconds, regardless of audio mode.
-     * @returns {number}
+     * @returns 
      * @private
      */
-    getSeekDuration() {
+    getSeekDuration(): number {
         if (this.options.audioMode === 'external') {
             return this._extDuration || 0;
         }
@@ -955,10 +1023,10 @@ export class WaveformPlayer {
 
     /**
      * Current playback position in seconds, regardless of audio mode.
-     * @returns {number}
+     * @returns 
      * @private
      */
-    getSeekCurrentTime() {
+    getSeekCurrentTime(): number {
         if (this.options.audioMode === 'external') {
             return this.progress * (this._extDuration || 0);
         }
@@ -975,11 +1043,11 @@ export class WaveformPlayer {
      * the target percentage; if the controller doesn't `preventDefault()`, the
      * local progress/visual is updated optimistically. Either way the ARIA
      * slider values are refreshed.
-     * @param {number} seconds - Target time in seconds.
+     * @param seconds - Target time in seconds.
      * @private
      * @fires WaveformPlayer#waveformplayer:request-seek
      */
-    seekToSeconds(seconds) {
+    seekToSeconds(seconds: number) {
         const duration = this.getSeekDuration();
         if (!duration) return;
 
@@ -998,11 +1066,11 @@ export class WaveformPlayer {
     /**
      * Set the slider's accessible name from `seekLabel`, falling back to the
      * track title, then a generic 'Seek'. No-op if the slider isn't present.
-     * @param {string} [title=this.options.title] - Track title to fall back to
+     * @param title - Track title to fall back to
      *   when `seekLabel` is not set.
      * @private
      */
-    applySeekLabel(title = this.options.title) {
+    applySeekLabel(title: string | null = this.options.title) {
         if (!this.seekEl) return;
         const label = this.options.seekLabel || title || 'Seek';
         this.seekEl.setAttribute('aria-label', label);
@@ -1051,14 +1119,14 @@ export class WaveformPlayer {
         navigator.mediaSession.setActionHandler('play', () => this.play());
         navigator.mediaSession.setActionHandler('pause', () => this.pause());
         navigator.mediaSession.setActionHandler('seekbackward', () => {
-            this.seekTo(clamp(this.audio.currentTime - 10, 0, this.audio.duration));
+            this.seekTo(clamp(this.audio!.currentTime - 10, 0, this.audio!.duration));
         });
         navigator.mediaSession.setActionHandler('seekforward', () => {
-            this.seekTo(clamp(this.audio.currentTime + 10, 0, this.audio.duration));
+            this.seekTo(clamp(this.audio!.currentTime + 10, 0, this.audio!.duration));
         });
         navigator.mediaSession.setActionHandler('seekto', (details) => {
             if (details.seekTime !== null) {
-                this.seekTo(details.seekTime);
+                this.seekTo(details.seekTime!);
             }
         });
 
@@ -1091,10 +1159,10 @@ export class WaveformPlayer {
      * Sync Media Session playback state + scrubber position on play/pause. iOS
      * ignores metadata set before the media is active, so we re-assert it on
      * play — that's what fixes the blank lock-screen card on mobile.
-     * @param {'playing'|'paused'} state
+     * @param state
      * @private
      */
-    _updateMediaSession(state) {
+    _updateMediaSession(state: 'playing' | 'paused') {
         if (!('mediaSession' in navigator) || !this.options.enableMediaSession || !this.audio) return;
         try {
             // Claim the (global, singleton) Media Session for THIS player on play —
@@ -1119,8 +1187,8 @@ export class WaveformPlayer {
         try {
             navigator.mediaSession.setPositionState({
                 duration: d,
-                playbackRate: this.audio.playbackRate || 1,
-                position: clamp(this.audio.currentTime, 0, d),
+                playbackRate: this.audio!.playbackRate || 1,
+                position: clamp(this.audio!.currentTime, 0, d),
             });
         } catch (e) { /* Media Session is best-effort */ }
     }
@@ -1177,19 +1245,19 @@ export class WaveformPlayer {
         // commits it and pointercancel abandons it. The click handler stays for keyboard/synthetic
         // compatibility. In external mode each seek dispatches a cancelable
         // `waveformplayer:request-seek` so the controller positions its audio.
-        this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+        this.canvas!.addEventListener('click', (e) => this.handleCanvasClick(e));
         this._dragging = false;
         this._seekHover = false;
         this._handleNear = false;
 
         // Hover state — reveals the handle + lifts the seekbar brightness. A
         // redraw is needed because the canvas has no CSS :hover of its own.
-        this.canvas.addEventListener('pointerenter', () => {
+        this.canvas!.addEventListener('pointerenter', () => {
             this._seekHover = true;
             this.drawWaveform();
             this._updateSeekHandle();
         });
-        this.canvas.addEventListener('pointerleave', () => {
+        this.canvas!.addEventListener('pointerleave', () => {
             this._seekHover = false;
             this._handleNear = false;
             if (!this._dragging) this._hideHoverTip();
@@ -1202,29 +1270,29 @@ export class WaveformPlayer {
         // fights the progress loop). The real seek is committed once, on
         // release. updateProgress() bails while _dragging so playback can't drag
         // the handle off the cursor.
-        this.canvas.addEventListener('pointerdown', (e) => {
+        this.canvas!.addEventListener('pointerdown', (e) => {
             if (e.pointerType === 'mouse' && e.button !== 0) return; // primary / touch only
             this._dragging = true;
             this._dragFrom = this.progress; // where to put the playhead back on pointercancel
-            try { this.canvas.setPointerCapture(e.pointerId); } catch (err) { /* unsupported */ }
+            try { this.canvas!.setPointerCapture(e.pointerId); } catch (err) { /* unsupported */ }
             this._scrubTo(e.clientX);
         });
-        this.canvas.addEventListener('pointermove', (e) => {
+        this.canvas!.addEventListener('pointermove', (e) => {
             if (this._dragging) {
                 this._scrubTo(e.clientX);
                 return;
             }
             // Hover (not dragging): grow the handle when the cursor is over it.
-            const rect = this.canvas.getBoundingClientRect();
+            const rect = this.canvas!.getBoundingClientRect();
             if (rect.width) {
                 this._handleNear = Math.abs((e.clientX - rect.left) - this.progress * rect.width) <= 10;
                 this._updateSeekHandle();
             }
         });
-        const endDrag = (e) => {
+        const endDrag = (e: PointerEvent) => {
             if (!this._dragging) return;
             this._dragging = false;
-            try { this.canvas.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+            try { this.canvas!.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
             if (e.type === 'pointercancel') {
                 // The browser took the gesture over (a touch that became a page
                 // scroll) — the user didn't pick a position, so don't seek: undo
@@ -1247,8 +1315,8 @@ export class WaveformPlayer {
             if (!this._seekHover && !this.options.showHoverTime) this._hideHoverTip();
             this._updateSeekHandle();
         };
-        this.canvas.addEventListener('pointerup', endDrag);
-        this.canvas.addEventListener('pointercancel', endDrag);
+        this.canvas!.addEventListener('pointerup', endDrag);
+        this.canvas!.addEventListener('pointercancel', endDrag);
 
         // Hover-time tooltip over the waveform (when showHoverTime is on).
         this.setupHoverTime();
@@ -1306,11 +1374,11 @@ export class WaveformPlayer {
      * behind (see {@link WaveformPlayer#_resetTrack}); reloading the same URL
      * — e.g. a retry after an error — keeps the drawn waveform. Either way the
      * error state is cleared, so a retry re-enables the player.
-     * @param {string} url - Audio URL.
-     * @returns {Promise<void>} Resolves once loading settles (errors are caught
+     * @param url - Audio URL.
+     * @returns Resolves once loading settles (errors are caught
      *   internally and surfaced through {@link WaveformPlayer#onError}).
      */
-    async load(url) {
+    async load(url: string): Promise<void> {
         const id = ++this._loadId;
         // Held locally: destroy() nulls this.audio while the metadata wait
         // below is still pending, and its handlers must still be able to
@@ -1373,7 +1441,7 @@ export class WaveformPlayer {
                 if (audio.preload !== 'none') {
                     // Wait for metadata to load
                     await new Promise((resolve, reject) => {
-                        const settle = (fn) => (e) => {
+                        const settle = (fn: (e: Event) => void) => (e: Event) => {
                             audio.removeEventListener('loadedmetadata', metadataHandler);
                             audio.removeEventListener('error', errorHandler);
                             fn(e);
@@ -1428,7 +1496,7 @@ export class WaveformPlayer {
             // `error` listener runs first, then this rejection — so one
             // failure must not report twice. A superseded load's failure
             // belongs to a track nobody is waiting for.
-            if (id === this._loadId && !this.hasError) this.onError(error);
+            if (id === this._loadId && !this.hasError) this.onError(error as Error);
         } finally {
             // Only the current load owns the loading state; a superseded one
             // finishing must not clear it while its successor is still busy.
@@ -1463,10 +1531,10 @@ export class WaveformPlayer {
      * disabled play button. The one place both {@link WaveformPlayer#onError}
      * and a fresh {@link WaveformPlayer#load} flip it, so a retry can't leave
      * half of it behind.
-     * @param {boolean} on - True to enter the error state, false to clear it.
+     * @param on - True to enter the error state, false to clear it.
      * @private
      */
-    _setError(on) {
+    _setError(on: boolean) {
         this.hasError = on;
         if (this.errorEl) this.errorEl.style.display = on ? 'flex' : 'none';
         if (this.canvas) this.canvas.style.opacity = on ? '0.2' : '1';
@@ -1486,19 +1554,19 @@ export class WaveformPlayer {
      * Per-track options the caller doesn't repeat are reset rather than
      * inherited from the previous track: `markers`, `waveform`, `bpm` and
      * `album`.
-     * @param {string} url - Audio URL.
-     * @param {string|null} [title=null] - Track title; keeps the existing
+     * @param url - Audio URL.
+     * @param title - Track title; keeps the existing
      *   title when null. (Deliberate: a controller that only swaps the
      *   audio keeps the label it set. Pass `''` to derive the title from the
      *   URL instead.)
-     * @param {string|null} [artist=null] - Track artist; pass `''` to hide
+     * @param artist - Track artist; pass `''` to hide
      *   the artist row, or null to keep the existing one.
-     * @param {Object} [options={}] - Additional options to merge (e.g.
+     * @param options - Additional options to merge (e.g.
      *   `preload`, `artwork`, `artworkAlt`, `markers`, `bpm`, `album`,
      *   `autoplay`).
-     * @returns {Promise<void>}
+     * @returns 
      */
-    async loadTrack(url, title = null, artist = null, options = {}) {
+    async loadTrack(url: string, title: string | null = null, artist: string | null = null, options: Record<string, any> = {}): Promise<void> {
         const hasArtworkOption = Object.prototype.hasOwnProperty.call(options, 'artwork');
         const hasArtworkAltOption = Object.prototype.hasOwnProperty.call(options, 'artworkAlt');
 
@@ -1520,12 +1588,12 @@ export class WaveformPlayer {
         // Update options (including preload if specified). Normalized on the
         // same terms as the constructor — loadTrack takes a fresh, caller-
         // supplied option set, so it's the second untyped entry point.
-        this.options = normalizeOptions(mergeOptions(this.options, {
+        (this as { options: Required<WaveformPlayerOptions> }).options = normalizeOptions(mergeOptions(this.options, {
             url,
             title: title === null ? this.options.title : title,
             artist: artist === null ? this.options.artist : artist,
             ...options
-        }));
+        })) as Required<WaveformPlayerOptions>;
         if (hasArtworkOption) {
             this.options.artwork = options.artwork || null;
         }
@@ -1539,7 +1607,7 @@ export class WaveformPlayer {
         // sources, so without this the previous track's tempo badge and
         // lock-screen album would carry over to every track after it.
         for (const key of ['bpm', 'album']) {
-            if (options[key] == null) this.options[key] = DEFAULT_OPTIONS[key];
+            if ((options as Record<string, any>)[key] == null) (this.options as Record<string, any>)[key] = (DEFAULT_OPTIONS as Record<string, any>)[key];
         }
 
         // Apply preload setting if it was changed. The caller's value decides
@@ -1623,13 +1691,13 @@ export class WaveformPlayer {
      * paint over peaks set before that frame — an easy race to lose with a
      * cached or fast fetch. A later reload of the same track reuses them too.
      * {@link WaveformPlayer#loadTrack} still replaces them for a new track.
-     * @param {string|number[]} data - Peaks as an array, a JSON/CSV string, or
+     * @param data - Peaks as an array, a JSON/CSV string, or
      *   a URL to a `.json` peaks file.
-     * @returns {Promise<boolean>|undefined} For a `.json` URL, a promise of
+     * @returns For a `.json` URL, a promise of
      *   whether the sidecar was applied; otherwise `undefined` (applied
      *   synchronously).
      */
-    setWaveformData(data) {
+    setWaveformData(data: string | number[]): Promise<boolean> | undefined {
         this.options.waveform = data;
 
         // URL to JSON file — fetch peaks and maybe markers / bpm
@@ -1685,7 +1753,7 @@ export class WaveformPlayer {
     drawWaveform() {
         if (!this.ctx || this.waveformData.length === 0) return;
 
-        draw(this.ctx, this.canvas, this.waveformData, this.progress, {
+        draw(this.ctx!, this.canvas!, this.waveformData, this.progress, {
             ...this.options,
             waveformStyle: this.options.waveformStyle || 'bars',
             color: this.options.waveformColor,
@@ -1708,11 +1776,11 @@ export class WaveformPlayer {
         }
 
         const dpr = window.devicePixelRatio || 1;
-        const rect = this.canvas.parentElement.getBoundingClientRect();
+        const rect = this.canvas!.parentElement!.getBoundingClientRect();
 
         this.canvas.width = rect.width * dpr;
         this.canvas.height = this.options.height * dpr;
-        this.canvas.parentElement.style.height = this.options.height + 'px';
+        this.canvas!.parentElement!.style.height = this.options.height + 'px';
 
         this.drawWaveform();
     }
@@ -1736,7 +1804,7 @@ export class WaveformPlayer {
         this.markersContainer.innerHTML = '';
         // Re-sync the active marker on the next progress tick (the DOM was wiped).
         this._activeMarkerIndex = -1;
-        clearTimeout(this._markerLabelTimer);
+        clearTimeout(this._markerLabelTimer!);
 
         if (!this.options.showMarkers || !this.options.markers?.length) return;
 
@@ -1767,7 +1835,7 @@ export class WaveformPlayer {
             markerEl.setAttribute('aria-label', marker.label
                 ? `${marker.label}, ${formatTime(marker.time)}`
                 : formatTime(marker.time));
-            markerEl.setAttribute('data-time', marker.time);
+            markerEl.setAttribute('data-time', marker.time as unknown as string);
 
             // Tooltip
             const tooltip = document.createElement('span');
@@ -1787,7 +1855,7 @@ export class WaveformPlayer {
                 }
             });
 
-            this.markersContainer.appendChild(markerEl);
+            this.markersContainer!.appendChild(markerEl);
         });
     }
 
@@ -1796,9 +1864,9 @@ export class WaveformPlayer {
      * the rest. Pass `null` to clear all. Lets an external controller (e.g. a
      * DJ bar) reflect the current section without reaching into the player's
      * private marker DOM.
-     * @param {number|null} index - Marker index to activate, or `null` to clear.
+     * @param index - Marker index to activate, or `null` to clear.
      */
-    setActiveMarker(index) {
+    setActiveMarker(index: number | null) {
         if (!this.markersContainer) return;
         const markers = this.markersContainer.querySelectorAll('.waveform-marker');
         markers.forEach((el, i) => el.classList.toggle('active', i === index));
@@ -1821,7 +1889,7 @@ export class WaveformPlayer {
         let active = -1;
         let best = -Infinity;
         els.forEach((el, i) => {
-            const mt = parseFloat(el.getAttribute('data-time'));
+            const mt = parseFloat(el.getAttribute('data-time') as string);
             if (Number.isFinite(mt) && mt <= t + 0.05 && mt > best) {
                 best = mt;
                 active = i;
@@ -1832,7 +1900,7 @@ export class WaveformPlayer {
             this.setActiveMarker(active);
             // Flash the newly-active marker's label, then let it fade — the
             // highlight stays. Override via `.waveform-marker.show-label` CSS.
-            clearTimeout(this._markerLabelTimer);
+            clearTimeout(this._markerLabelTimer!);
             els.forEach((el, i) => el.classList.toggle('show-label', i === active));
             if (active >= 0) {
                 this._markerLabelTimer = setTimeout(() => {
@@ -1881,15 +1949,15 @@ export class WaveformPlayer {
      * Position + fill the hover-time tooltip for a given client-X. Shared by
      * hover and drag-scrub. No-op when the tooltip isn't enabled
      * (`showHoverTime` off).
-     * @param {number} clientX - Pointer client-X coordinate.
+     * @param clientX - Pointer client-X coordinate.
      * @private
      */
-    _updateHoverTip(clientX) {
+    _updateHoverTip(clientX: number) {
         const tip = this.hoverTimeEl;
         if (!tip) return;
         const dur = this.getSeekDuration();
         if (!dur) { tip.style.opacity = '0'; return; }
-        const rect = this.canvas.getBoundingClientRect();
+        const rect = this.canvas!.getBoundingClientRect();
         const pct = clamp((clientX - rect.left) / rect.width);
         tip.textContent = formatTime(pct * dur);
         tip.style.left = (pct * 100) + '%';
@@ -1905,11 +1973,11 @@ export class WaveformPlayer {
      * Visually preview a seek during a drag — moves the playhead + handle +
      * tooltip to the cursor WITHOUT touching the audio (playback continues; the
      * real seek is committed on release).
-     * @param {number} clientX - Pointer client-X coordinate.
+     * @param clientX - Pointer client-X coordinate.
      * @private
      */
-    _scrubTo(clientX) {
-        const rect = this.canvas.getBoundingClientRect();
+    _scrubTo(clientX: number) {
+        const rect = this.canvas!.getBoundingClientRect();
         if (!rect.width) return;
         this.progress = clamp((clientX - rect.left) / rect.width);
         this.drawWaveform();
@@ -1971,11 +2039,11 @@ export class WaveformPlayer {
      * local visual optimistically unless the controller vetoes it); in self
      * mode it seeks the owned `<audio>` via
      * {@link WaveformPlayer#seekToPercent}.
-     * @param {MouseEvent} event - The canvas click event.
+     * @param event - The canvas click event.
      * @private
      * @fires WaveformPlayer#waveformplayer:request-seek
      */
-    handleCanvasClick(event) {
+    handleCanvasClick(event: MouseEvent) {
         // Ignore the synthetic click that trails a pointer drag (see endDrag).
         if (this._suppressClick) { this._suppressClick = false; return; }
         this._seekFromPointer(event.clientX);
@@ -1988,12 +2056,12 @@ export class WaveformPlayer {
      * target percentage (updating the local visual optimistically); in self
      * mode it seeks the owned `<audio>` via
      * {@link WaveformPlayer#seekToPercent}.
-     * @param {number} clientX - Pointer client-X coordinate.
+     * @param clientX - Pointer client-X coordinate.
      * @private
      * @fires WaveformPlayer#waveformplayer:request-seek
      */
-    _seekFromPointer(clientX) {
-        const rect = this.canvas.getBoundingClientRect();
+    _seekFromPointer(clientX: number) {
+        const rect = this.canvas!.getBoundingClientRect();
         if (!rect.width) return;
         const targetPercent = clamp((clientX - rect.left) / rect.width);
 
@@ -2010,10 +2078,10 @@ export class WaveformPlayer {
      * Toggle the loading state: show/hide the spinner overlay and set
      * `aria-busy` on the accessible seek slider so assistive tech knows the
      * player is fetching/decoding.
-     * @param {boolean} loading - True while audio is loading.
+     * @param loading - True while audio is loading.
      * @private
      */
-    setLoading(loading) {
+    setLoading(loading: boolean) {
         this.isLoading = loading;
         if (this.loadingEl) {
             // The indicator stands in for a waveform that isn't there yet, so
@@ -2043,7 +2111,7 @@ export class WaveformPlayer {
         if (this.isDestroying) return;
 
         if (this.totalTimeEl) {
-            this.totalTimeEl.textContent = formatTime(this.audio.duration);
+            this.totalTimeEl.textContent = formatTime(this.audio!.duration);
         }
         // Re-render markers when duration is known
         this.renderMarkers();
@@ -2056,14 +2124,14 @@ export class WaveformPlayer {
      * class and swap the play/pause icon visibility. The single source of
      * truth shared by `onPlay`, `onPause`, and the external-mode
      * `setPlayingState` pump so they can't drift. No-op without a button.
-     * @param {boolean} isPlaying - Whether playback is active.
+     * @param isPlaying - Whether playback is active.
      * @private
      */
-    setPlayButtonState(isPlaying) {
+    setPlayButtonState(isPlaying: boolean) {
         if (!this.playBtn) return;
         this.playBtn.classList.toggle('playing', isPlaying);
-        const playIcon = this.playBtn.querySelector('.waveform-icon-play');
-        const pauseIcon = this.playBtn.querySelector('.waveform-icon-pause');
+        const playIcon = this.playBtn.querySelector<HTMLElement>('.waveform-icon-play');
+        const pauseIcon = this.playBtn.querySelector<HTMLElement>('.waveform-icon-pause');
         if (playIcon) playIcon.style.display = isPlaying ? 'none' : 'flex';
         if (pauseIcon) pauseIcon.style.display = isPlaying ? 'flex' : 'none';
     }
@@ -2139,10 +2207,10 @@ export class WaveformPlayer {
         // Ignore during destruction
         if (this.isDestroying) return;
 
-        const duration = this.audio.duration;
+        const duration = this.audio!.duration;
 
         this.progress = 0;
-        this.audio.currentTime = 0;
+        this.audio!.currentTime = 0;
         this.drawWaveform();
 
         // Reset time display
@@ -2168,11 +2236,11 @@ export class WaveformPlayer {
      * `error` handler: set the error flag, hide the spinner, reveal the error
      * overlay, dim the canvas, disable the play button, and fire the `onError`
      * callback. No-op during destruction.
-     * @param {Event|Error} error - The audio error event, or an Error thrown
+     * @param error - The audio error event, or an Error thrown
      *   during loading.
      * @private
      */
-    onError(error) {
+    onError(error: Event | Error) {
         // Ignore errors during destruction
         if (this.isDestroying) return;
 
@@ -2291,7 +2359,7 @@ export class WaveformPlayer {
         // anyway, e.g. sample-pack previews where the tempo is in the metadata.
         const bpm = this.options.bpm || this.detectedBPM;
         if (this.bpmEl && this.bpmValueEl) {
-            if (bpm) this.bpmValueEl.textContent = Math.round(bpm);
+            if (bpm) this.bpmValueEl!.textContent = Math.round(bpm) as unknown as string;
             this.bpmEl.style.display = bpm ? 'inline-flex' : 'none';
         }
     }
@@ -2308,7 +2376,7 @@ export class WaveformPlayer {
         this._scheme = detectColorScheme(this.container);
         const preset = getColorPreset(this.options.colorPreset, this.container);
         for (const key of (this._presetKeys || [])) {
-            if (key in preset) this.options[key] = preset[key];
+            if (key in preset) (this.options as Record<string, any>)[key] = (preset as Record<string, string>)[key];
         }
         this._applyThemeColors();
     }
@@ -2388,8 +2456,8 @@ export class WaveformPlayer {
         this.speedBtn?.setAttribute('aria-label', speedButtonLabel(rate, this.options.speedLabel));
 
         // Update active state in menu
-        this.container.querySelectorAll('.speed-option').forEach(btn => {
-            const on = parseFloat(btn.dataset.rate) === this.audio.playbackRate;
+        this.container.querySelectorAll<HTMLElement>('.speed-option').forEach(btn => {
+            const on = parseFloat(btn.dataset.rate!) === this.audio!.playbackRate;
             btn.classList.toggle('active', on);
             btn.setAttribute('aria-checked', on ? 'true' : 'false');
         });
@@ -2416,11 +2484,11 @@ export class WaveformPlayer {
      * When `singlePlay` is enabled, any other currently-playing instance is
      * paused first.
      *
-     * @return {Promise|undefined} The promise from `HTMLMediaElement.play()` in
+     * @return The promise from `HTMLMediaElement.play()` in
      *   self mode; `undefined` in external mode.
      * @fires WaveformPlayer#waveformplayer:request-play
      */
-    play() {
+    play(): Promise<void> | undefined {
         if (this.options.singlePlay && WaveformPlayer.currentlyPlaying &&
             WaveformPlayer.currentlyPlaying !== this) {
             WaveformPlayer.currentlyPlaying.pause();
@@ -2437,7 +2505,7 @@ export class WaveformPlayer {
         }
 
         WaveformPlayer.currentlyPlaying = this;
-        return this.audio.play();
+        return this.audio!.play();
     }
 
     /**
@@ -2468,9 +2536,9 @@ export class WaveformPlayer {
      * directly: `WaveformBar.play(event.detail)`.
      *
      * @private
-     * @return {{url:string,title:?string,artist:?string,artwork:?string,player:WaveformPlayer}}
+     * @return 
      */
-    _buildTrackDetail() {
+    _buildTrackDetail(): WaveformTrackDetail {
         return {
             url:      this.options.url,
             title:    this.options.title,
@@ -2492,12 +2560,12 @@ export class WaveformPlayer {
      * the matching callback) on an actual transition, starting/stopping the
      * smooth-update loop accordingly.
      *
-     * @param {boolean} playing - True to enter the playing state, false to
+     * @param playing - True to enter the playing state, false to
      *   enter the paused state.
      * @fires WaveformPlayer#waveformplayer:play
      * @fires WaveformPlayer#waveformplayer:pause
      */
-    setPlayingState(playing) {
+    setPlayingState(playing: boolean) {
         const wasPlaying = this.isPlaying;
         this.isPlaying = !!playing;
         this.setPlayButtonState(this.isPlaying);
@@ -2524,12 +2592,12 @@ export class WaveformPlayer {
      * end. No-op for a non-positive duration, and while the user is dragging
      * the playhead (as in self mode).
      *
-     * @param {number} currentTime - Current playback position in seconds.
-     * @param {number} duration - Total track duration in seconds.
+     * @param currentTime - Current playback position in seconds.
+     * @param duration - Total track duration in seconds.
      * @fires WaveformPlayer#waveformplayer:timeupdate
      * @fires WaveformPlayer#waveformplayer:ended
      */
-    setProgress(currentTime, duration) {
+    setProgress(currentTime: number, duration: number) {
         if (!duration || duration <= 0) return;
         // While the user drags, the playhead previews the cursor and the seek
         // commits on release — the controller's clock mustn't drag it back
@@ -2601,11 +2669,11 @@ export class WaveformPlayer {
      * {@link WaveformPlayer#_seekViaCache}. Detection is by the element's own
      * `seekable`, not the browser, so engines that can already seek (WebKit,
      * Firefox) never take that path; it runs at most once per file.
-     * @param {number} time - Target position in seconds.
+     * @param time - Target position in seconds.
      * @private
      */
-    _seekAudio(time) {
-        const audio = this.audio;
+    _seekAudio(time: number) {
+        const audio = this.audio!;
         // Only divert when the element positively reports ranges that exclude
         // the target (Chromium's `0–0` on these hosts). No ranges at all means
         // "unknown" (no metadata yet, some engines, test DOMs): seek as always.
@@ -2626,11 +2694,11 @@ export class WaveformPlayer {
      * reload the element from the browser cache and seek there. Repeated seeks
      * while waiting just update the target. Warns once per URL, since the
      * real fix is serving audio from a range-capable host.
-     * @param {number} time - Target position in seconds.
+     * @param time - Target position in seconds.
      * @private
      */
-    _seekViaCache(time) {
-        const audio = this.audio;
+    _seekViaCache(time: number) {
+        const audio = this.audio!;
         const url = this.options.url;
         this._cacheSeekTime = time;
 
@@ -2671,11 +2739,11 @@ export class WaveformPlayer {
      * internal plumbing, so onPause/onPlay ignore them while `_seekReload` is
      * set: consumers (the bar, waveform-tracker) see a seek, not a pause and a
      * new play, and the button doesn't flicker.
-     * @param {string} url - The file being reloaded.
+     * @param url - The file being reloaded.
      * @private
      */
-    _reloadForSeek(url) {
-        const audio = this.audio;
+    _reloadForSeek(url: string) {
+        const audio = this.audio!;
         const wasPlaying = !audio.paused && !audio.ended;
         const rate = audio.playbackRate;
         this._seekReloadedUrl = url;
@@ -2712,9 +2780,9 @@ export class WaveformPlayer {
      * there is no audio element or duration, or when `seconds` isn't a finite
      * number. External-mode keyboard/click seeks go through
      * {@link WaveformPlayer#seekToSeconds} instead.
-     * @param {number} seconds - Target time in seconds.
+     * @param seconds - Target time in seconds.
      */
-    seekTo(seconds) {
+    seekTo(seconds: number) {
         // Coerce + guard like setVolume(): `audio.currentTime = NaN` throws.
         const s = Number(seconds);
         if (this.audio && this.audio.duration && Number.isFinite(s)) {
@@ -2727,9 +2795,9 @@ export class WaveformPlayer {
      * Seek the owned `<audio>` element to a fraction of the track, clamped to
      * `[0, 1]`, and refresh progress. Self mode only — a no-op without an audio
      * element or duration, or when `percent` isn't a finite number.
-     * @param {number} percent - Position as a fraction from 0 to 1.
+     * @param percent - Position as a fraction from 0 to 1.
      */
-    seekToPercent(percent) {
+    seekToPercent(percent: number) {
         const p = Number(percent);
         if (this.audio && this.audio.duration && Number.isFinite(p)) {
             this._seekAudio(this.audio.duration * clamp(p));
@@ -2740,9 +2808,9 @@ export class WaveformPlayer {
     /**
      * Set the owned `<audio>` element's volume, clamped to `[0, 1]`. Self mode
      * only — a no-op in external mode where the controller owns volume.
-     * @param {number} volume - Volume from 0 (silent) to 1 (full).
+     * @param volume - Volume from 0 (silent) to 1 (full).
      */
-    setVolume(volume) {
+    setVolume(volume: number) {
         // Coerce + guard: a non-finite value (e.g. from a bad config or stale
         // storage) must not propagate NaN into audio.volume (which throws).
         const v = Number(volume);
@@ -2761,9 +2829,9 @@ export class WaveformPlayer {
      * bounds. A non-numeric rate is ignored rather than assigned, since
      * `audio.playbackRate = NaN` throws. The rate is also written to
      * `defaultPlaybackRate`, so it survives the next track load.
-     * @param {number} rate - Desired playback rate; clamped to the 0.25–4 range.
+     * @param rate - Desired playback rate; clamped to the 0.25–4 range.
      */
-    setPlaybackRate(rate) {
+    setPlaybackRate(rate: number) {
         if (!this.audio) return;
 
         const clampedRate = toFiniteNumber(rate, null, {min: PLAYBACK_RATE_MIN, max: PLAYBACK_RATE_MAX});
@@ -2800,7 +2868,7 @@ export class WaveformPlayer {
         // mode it emits request-pause, and a wrapper remounting an inline
         // player would pause the controller's (e.g. the bar's) playback.
         this.stopSmoothUpdate();
-        clearTimeout(this._markerLabelTimer);
+        clearTimeout(this._markerLabelTimer!);
         clearTimeout(this._readyTimer);
         // Supersede any in-flight load() so it stops at its next await
         // instead of decoding, drawing and firing onLoad for a dead player.
@@ -2818,7 +2886,7 @@ export class WaveformPlayer {
         // Remove window resize listener
         if (this.resizeHandler) {
             window.removeEventListener('resize', this.resizeHandler);
-            this.resizeHandler = null;
+            this.resizeHandler = null!;
         }
 
         // Remove from instances map (and drop the shared theme watcher if
@@ -2868,10 +2936,10 @@ export class WaveformPlayer {
 
     /**
      * Get player instance by ID, element, or element ID
-     * @param {string|HTMLElement} idOrElement - Player ID, element, or element ID
-     * @returns {WaveformPlayer|undefined}
+     * @param idOrElement - Player ID, element, or element ID
+     * @returns 
      */
-    static getInstance(idOrElement) {
+    static getInstance(idOrElement: string | HTMLElement): WaveformPlayer | undefined {
         if (typeof idOrElement === 'string') {
             const instance = this.instances.get(idOrElement);
             if (instance) return instance;
@@ -2891,9 +2959,9 @@ export class WaveformPlayer {
 
     /**
      * Get all player instances
-     * @returns {WaveformPlayer[]}
+     * @returns 
      */
-    static getAllInstances() {
+    static getAllInstances(): WaveformPlayer[] {
         return Array.from(this.instances.values());
     }
 
@@ -2909,11 +2977,11 @@ export class WaveformPlayer {
     /**
      * Generate waveform data from audio URL
      * @static
-     * @param {string} url - Audio URL
-     * @param {number} samples - Number of samples
-     * @returns {Promise<number[]>} Waveform peak data
+     * @param url - Audio URL
+     * @param samples - Number of samples
+     * @returns Waveform peak data
      */
-    static async generateWaveformData(url, samples = DEFAULT_SAMPLES) {
+    static async generateWaveformData(url: string, samples: number = DEFAULT_SAMPLES): Promise<number[]> {
         try {
             const result = await generateWaveform(url, samples);
             return result.peaks;
@@ -2947,8 +3015,8 @@ export class WaveformPlayer {
      *     });
      *
      * @static
-     * @param {string|undefined|null} audioUrl - Audio file URL.
-     * @returns {string|undefined} Peaks JSON URL, or `undefined`
+     * @param audioUrl - Audio file URL.
+     * @returns Peaks JSON URL, or `undefined`
      *   when the input is empty / has no recognised audio extension.
      *
      * @example
@@ -2961,7 +3029,7 @@ export class WaveformPlayer {
      * WaveformPlayer.getPeaksUrl(undefined)
      * // undefined
      */
-    static getPeaksUrl(audioUrl) {
+    static getPeaksUrl(audioUrl: string | undefined | null): string | undefined {
         if (!audioUrl) return undefined;
         const swapped = audioUrl.replace(
             /\.(mp3|wav|ogg|flac|m4a|aac)(\?[^#]*)?(#.*)?$/i,

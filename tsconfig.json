@@ -19,7 +19,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "types": [],
-    "useDefineForClassFields": false
+    "useDefineForClassFields": true
   },
   "include": [
     "src/js/**/*"
