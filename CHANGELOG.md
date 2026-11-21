@@ -98,6 +98,10 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **A small `height` is respected on phones.** Below 480px the stylesheet still
+  gave the waveform a 50px minimum, so a `height: 32` player (like the slim
+  waveform in waveform-bar) rendered 50px tall with its canvas stretched. The
+  1.x fix removed this floor everywhere except that phone-width rule.
 - **Smooth progress when playback starts before the audio's metadata.** With
   `preload: 'none'`, pressing play before the file's metadata had loaded left
   the progress bar on the browser's ~4 updates a second for the whole track:

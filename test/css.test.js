@@ -134,8 +134,11 @@ describe('waveform height', () => {
 		// resizeCanvas() writes the `height` option onto the container inline, but a
 		// stylesheet min-height beats a smaller inline height: `height: 32` rendered
 		// at 60px with the canvas stretched to fit (the bar's slim waveform hit this).
-		const block = CSS.match(/\.waveform-container\s*\{([^}]*)\}/)[1].replace(/\/\*[\s\S]*?\*\//g, '');
-		expect(block).not.toMatch(/min-height\s*:/);
+		// Every rule for it, media queries included: a phone-width `min-height: 50px`
+		// survived the first fix and kept forcing `height: 32` players to 50px.
+		const blocks = [...CSS.matchAll(/\.waveform-container\s*\{([^}]*)\}/g)].map((m) => m[1].replace(/\/\*[\s\S]*?\*\//g, ''));
+		expect(blocks.length).toBeGreaterThan(0);
+		for (const block of blocks) expect(block).not.toMatch(/min-height\s*:/);
 	});
 });
 

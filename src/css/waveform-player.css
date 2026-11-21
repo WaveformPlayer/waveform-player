@@ -639,10 +639,6 @@ waveform-player:not(:defined) {
         min-width: var(--wfp-btn-size, 32px);
     }
 
-    .waveform-container {
-        min-height: 50px;
-    }
-
     .waveform-info {
         font-size: 12px;
     }
