@@ -332,3 +332,4 @@ export declare class WaveformPlayer {
      */
     static getPeaksUrl(audioUrl: string | undefined | null): string | undefined;
 }
+//# sourceMappingURL=core.d.ts.map

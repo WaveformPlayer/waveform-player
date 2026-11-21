@@ -20,3 +20,4 @@
  * @returns Detected tempo in BPM, or null when none was detected.
  */
 export declare function detectBPM(buffer: AudioBuffer): number | null;
+//# sourceMappingURL=bpm.d.ts.map

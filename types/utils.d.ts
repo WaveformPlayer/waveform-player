@@ -312,3 +312,4 @@ export declare function inTimeRanges(ranges: Pick<TimeRanges, 'length' | 'start'
  * @returns
  */
 export declare function coversDuration(ranges: Pick<TimeRanges, 'length' | 'start' | 'end'>, duration: number): boolean;
+//# sourceMappingURL=utils.d.ts.map

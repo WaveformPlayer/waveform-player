@@ -219,3 +219,4 @@ export declare function normalizeMarkers(value: any): WaveformMarker[];
  * @returns The same object, normalized.
  */
 export declare function normalizeOptions(options: Record<string, any>): Record<string, any>;
+//# sourceMappingURL=themes.d.ts.map

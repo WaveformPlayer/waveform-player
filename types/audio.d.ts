@@ -51,3 +51,4 @@ export declare function generateWaveform(url: string, samples?: number, shouldDe
  * @returns Array of `samples` pseudo-random peak values in the 0.1-1 range.
  */
 export declare function generatePlaceholderWaveform(samples?: number): number[];
+//# sourceMappingURL=audio.d.ts.map

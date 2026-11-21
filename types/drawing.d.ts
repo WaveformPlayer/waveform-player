@@ -114,3 +114,4 @@ export declare const DRAWING_STYLES: {
  * @returns
  */
 export declare function draw(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, peaks: number[], progress: number, options: Record<string, any>): void;
+//# sourceMappingURL=drawing.d.ts.map

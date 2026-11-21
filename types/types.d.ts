@@ -301,3 +301,4 @@ export interface WaveformPlayerUtils {
     extractPeaks(buffer: Pick<AudioBuffer, 'length' | 'numberOfChannels' | 'getChannelData'>, samples?: number): number[];
     detectColorScheme(element?: Element): 'dark' | 'light';
 }
+//# sourceMappingURL=types.d.ts.map
