@@ -157,3 +157,14 @@ describe('marker layer', () => {
 		expect(block.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/min-height\s*:/);
 	});
 });
+
+describe('volume control on phones', () => {
+	it('hides the slider (not the mute toggle) at phone width, by viewport, not container', () => {
+		// A container query would make the info row a size container, which stops
+		// it counting toward a content-sized player's width (inline-block, flex item).
+		const m = CSS.match(/@media \(max-width: 480px\) \{\s*\.waveform-volume-slider \{\s*display: none;/);
+		expect(m).not.toBeNull();
+		const rules = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+		expect(rules).not.toMatch(/[{;\s]container(-type|-name)?\s*:/);
+	});
+});

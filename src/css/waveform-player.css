@@ -562,6 +562,17 @@ waveform-player:not(:defined) {
     cursor: pointer;
 }
 
+/* A phone-width row can't fit the slider beside loop, download and the time:
+   the title is squeezed to nothing. Keep the mute toggle; drop the slider (as
+   on iOS, which ignores scripted volume anyway). A viewport query, not a
+   container query: making the row a size container would stop it counting
+   toward the width of a content-sized player (inline-block, flex item). */
+@media (max-width: 480px) {
+    .waveform-volume-slider {
+        display: none;
+    }
+}
+
 /* ==========================================================================
    Keyboard focus — :focus-visible rings, so a click stays quiet while Tab
    navigation shows a clear indicator.
