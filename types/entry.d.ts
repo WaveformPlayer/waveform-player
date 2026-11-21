@@ -35,5 +35,6 @@ declare global {
  */
 export default WaveformPlayer;
 export { WaveformPlayer };
+export { WaveformPlayerElement, defineWaveformPlayerElement } from './element.js';
 export type { WaveformStyle, ColorPreset, AudioMode, AudioPreload, AudioCrossOrigin, ButtonAlign, WaveformMarker, WaveformPeaks, WaveformTimeUpdateHandler, WaveformPlayerHandler, WaveformErrorHandler, WaveformPlayerOptions, WaveformLifecycleEventDetail, WaveformEndedEventDetail, WaveformTimeUpdateEventDetail, WaveformErrorEventDetail, WaveformSeekEventDetail, WaveformRateChangeEventDetail, WaveformVolumeChangeEventDetail, WaveformLoopEventDetail, WaveformTrackDetail, WaveformRequestEventDetail, WaveformRequestSeekEventDetail, WaveformPlayerEventMap, WaveformPlayerInstanceEventMap, WaveformPlayerUtils, } from './types.js';
 //# sourceMappingURL=entry.d.ts.map

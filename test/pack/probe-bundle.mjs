@@ -26,7 +26,9 @@ if (!target || !['--esm', '--cjs', '--iife'].includes(mode)) {
 }
 
 const targetPath = target.startsWith('file:') ? fileURLToPath(target) : target;
-const MARKUP = '<div data-waveform-player data-audio-mode="external"></div>';
+// The declarative div, and the custom element form beside it.
+const MARKUP = '<div data-waveform-player data-audio-mode="external"></div>'
+	+ '<waveform-player src="a.mp3" audio-mode="external" waveform="[0.5]"></waveform-player>';
 
 const isIife = mode === '--iife';
 const { JSDOM, VirtualConsole } = await import('jsdom');
@@ -134,14 +136,19 @@ await new Promise((resolve) => setImmediate(resolve));
 
 const Player = mod.default ?? mod.WaveformPlayer ?? mod;
 const el = window.document.querySelector('[data-waveform-player]');
+const tag = window.document.querySelector('waveform-player');
+const all = Player.getAllInstances?.() ?? null;
 
 const report =
 	JSON.stringify({
 		format: mode.replace('--', ''),
 		readyStateAtLoad,
 		isClass: typeof Player === 'function',
-		instances: Player.getAllInstances?.().length ?? -1,
+		// The scan's players: the element's own is reported separately.
+		instances: all ? all.filter((p) => p.container !== tag).length : -1,
 		claimed: el?.dataset.waveformInitialized === 'true',
+		elementDefined: !!window.customElements?.get('waveform-player'),
+		element: !!tag?.player && Player.getInstance?.(tag) === tag.player && tag.player.options.url === 'a.mp3',
 		global: window.WaveformPlayer === Player,
 	}) + '\n';
 

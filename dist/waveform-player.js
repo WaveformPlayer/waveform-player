@@ -3717,6 +3717,187 @@
     }
   };
 
+  // src/js/element.ts
+  var OPTION_KEYS = [
+    "src",
+    "url",
+    "height",
+    "samples",
+    "duration",
+    "preload",
+    "crossOrigin",
+    "audioMode",
+    "lazy",
+    "style",
+    "waveformStyle",
+    "waveformGradient",
+    "barWidth",
+    "barSpacing",
+    "barRadius",
+    "buttonAlign",
+    "layout",
+    "buttonStyle",
+    "buttonSize",
+    "buttonRadius",
+    "colorPreset",
+    "waveformColor",
+    "progressColor",
+    "autoplay",
+    "showControls",
+    "showInfo",
+    "showTime",
+    "showHoverTime",
+    "seekHandle",
+    "showBpm",
+    "bpm",
+    "singlePlay",
+    "playOnSeek",
+    "loop",
+    "showLoop",
+    "showVolume",
+    "volume",
+    "showDownload",
+    "downloadUrl",
+    "downloadName",
+    "title",
+    "artist",
+    "album",
+    "artwork",
+    "artworkPosition",
+    "waveform",
+    "markers",
+    "playbackRate",
+    "showPlaybackSpeed",
+    "playbackRates",
+    "enableMediaSession",
+    "showMarkers",
+    "accessibleSeek",
+    "seekLabel",
+    "seekValueText",
+    "errorText",
+    "playPauseLabel",
+    "speedLabel",
+    "loopLabel",
+    "volumeLabel",
+    "muteLabel",
+    "downloadLabel",
+    "artworkAlt",
+    "unknownTrackText",
+    "playIcon",
+    "pauseIcon"
+  ];
+  var TRACK_KEYS = ["src", "url", "title", "artist", "artwork", "waveform", "duration"];
+  var kebab = (key) => key.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
+  var isBoolean = (key) => BOOLEANS.some((b) => b.toLowerCase() === key.toLowerCase());
+  function readOptions(el) {
+    const dataset = {};
+    for (const key of OPTION_KEYS) {
+      const name = kebab(key);
+      const plain = key === "style" ? null : el.getAttribute(name);
+      const value = plain === "" && isBoolean(key) ? "true" : plain ?? el.getAttribute("data-" + name);
+      if (value != null) dataset[key] = value;
+    }
+    return parseDataAttributes({ dataset });
+  }
+  var Base = typeof HTMLElement === "undefined" ? class {
+  } : HTMLElement;
+  var WaveformPlayerElement = class extends Base {
+    static get observedAttributes() {
+      return OPTION_KEYS.flatMap((key) => key === "style" ? ["data-style"] : [kebab(key), "data-" + kebab(key)]);
+    }
+    connectedCallback() {
+      if (this._leaving !== void 0) {
+        clearTimeout(this._leaving);
+        this._leaving = void 0;
+        this.player?.resizeCanvas();
+        return;
+      }
+      if (!this.player) this._build();
+    }
+    disconnectedCallback() {
+      clearTimeout(this._leaving);
+      this._leaving = setTimeout(() => {
+        this._leaving = void 0;
+        if (!this.isConnected) this._teardown();
+      }, 0);
+    }
+    attributeChangedCallback(name, previous, value) {
+      if (!this.player || previous === value) return;
+      const key = name.replace(/^data-/, "").replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      const kind = TRACK_KEYS.includes(key) ? "load" : "rebuild";
+      if (this._pending) {
+        if (kind === "rebuild") this._pending = kind;
+        return;
+      }
+      this._pending = kind;
+      queueMicrotask(() => {
+        const pending = this._pending;
+        this._pending = void 0;
+        if (!this.player) return;
+        if (pending === "rebuild") this._rebuild();
+        else this._loadTrack();
+      });
+    }
+    /** Play — {@link WaveformPlayer.play}. */
+    play() {
+      return this.player?.play();
+    }
+    /** Pause — {@link WaveformPlayer.pause}. */
+    pause() {
+      this.player?.pause();
+    }
+    /** Toggle play/pause — {@link WaveformPlayer.togglePlay}. */
+    togglePlay() {
+      this.player?.togglePlay();
+    }
+    /** @internal */
+    _build() {
+      WaveformPlayer.getInstance(this)?.destroy();
+      try {
+        this.player = new WaveformPlayer(this, readOptions(this));
+        this.dataset.waveformInitialized = "true";
+      } catch (error) {
+        this.player = null;
+        console.error("[WaveformPlayer] Failed to initialize:", error, this);
+      }
+    }
+    /** @internal */
+    _teardown() {
+      this.player?.destroy();
+      this.player = null;
+    }
+    /** @internal */
+    _rebuild() {
+      this._teardown();
+      this._build();
+    }
+    /** @internal Load the track the attributes now describe, keeping the player. */
+    _loadTrack() {
+      const { url, title, artist, ...options } = readOptions(this);
+      if (!url) {
+        this._rebuild();
+        return;
+      }
+      const player = this.player;
+      player.loadTrack(url, title || "", artist || "", {
+        // Every per-track option the attributes give, so loadTrack() only
+        // resets what the element doesn't set.
+        ...options,
+        artwork: options.artwork || null,
+        autoplay: player.isPlaying
+      });
+    }
+  };
+  function defineWaveformPlayerElement(name = "waveform-player") {
+    if (typeof customElements === "undefined") return void 0;
+    const existing = customElements.get(name);
+    if (existing) return existing;
+    const element = class extends WaveformPlayerElement {
+    };
+    customElements.define(name, element);
+    return element;
+  }
+
   // src/js/entry.ts
   WaveformPlayer.utils = { formatTime, extractTitleFromUrl, escapeHtml, isSafeHref, parseDataAttributes, detectColorScheme, extractPeaks, encodeCompactPeaks, decodeCompactPeaks };
   function initElement(element) {
@@ -3747,6 +3928,7 @@
   // src/js/index.ts
   var autoInitDisabled = () => document.documentElement?.dataset.waveformAutoinit === "false";
   if (isBrowser() && !autoInitDisabled()) {
+    defineWaveformPlayerElement();
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", () => entry_default.init());
     } else {

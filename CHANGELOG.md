@@ -66,6 +66,21 @@ All notable changes to this project will be documented in this file.
   through `loadTrack()`. Browsers ignore `download` for cross-origin URLs
   unless the server sends `Content-Disposition: attachment`, and navigate to
   the file instead.
+- **`<waveform-player>` custom element.** `<waveform-player src="track.mp3"
+  duration="187" waveform-style="bars">` takes every `data-*` option as an
+  attribute, with or without the `data-` prefix (the plain form wins; `style`
+  only as `data-style`, since plain `style` is CSS, and a bare boolean such as
+  `loop` means true). It renders in light DOM, so the stylesheet applies and
+  server-rendered markup upgrades in place, and `waveformplayer:*` events
+  bubble from the tag. `.player` is the instance; `play()`, `pause()` and
+  `togglePlay()` forward to it. Changing `src`, `url`, `title`, `artist`,
+  `artwork`, `waveform` or `duration` loads the new track; any other option
+  attribute rebuilds the player. Removing the element destroys its player,
+  but moving it does not. The default bundle registers it (unless the page
+  sets `data-waveform-autoinit="false"`); `/no-autoinit` exports
+  `defineWaveformPlayerElement(name?)` instead. The stylesheet makes the
+  element a block and gives it a default player's height before it is defined
+  (`--wfp-element-height`, 90px), so it doesn't shift the page as it upgrades.
 
 ### Changed
 

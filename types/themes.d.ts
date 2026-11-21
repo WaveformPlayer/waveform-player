@@ -197,6 +197,13 @@ export declare const BUTTON_ALIGNMENTS: string[];
 export declare const PLAYBACK_RATE_MIN = 0.25;
 export declare const PLAYBACK_RATE_MAX = 4;
 /**
+ * Boolean feature flags. Coerced with {@link toBool} so the string `'false'`
+ * (a `data-*` value, or a wrapper that stringified a prop) doesn't read as true.
+ * Also how `<waveform-player>` knows a bare attribute (`loop`) means true.
+ * @type {string[]}
+ */
+export declare const BOOLEANS: string[];
+/**
  * Normalize a marker list into renderable markers.
  *
  * Accepts an array or a JSON array string, and keeps only entries that are

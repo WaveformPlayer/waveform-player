@@ -163,6 +163,10 @@ export default WaveformPlayer;
 // Named exports
 export {WaveformPlayer};
 
+// The `<waveform-player>` custom element. Registering it is the caller's call
+// here — index.js does it on import, as it scans on import.
+export {WaveformPlayerElement, defineWaveformPlayerElement} from './element.js';
+
 // The public types (options, events, markers), for `import type { ... }`.
 export type {
     WaveformStyle,

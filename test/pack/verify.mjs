@@ -170,6 +170,11 @@ console.log(JSON.stringify(out));
 			);
 			check(`${label} (${r.format}) exports the class`, r.isClass);
 			check(`${label} (${r.format}) attaches window.WaveformPlayer`, r.global);
+			check(
+				`${label} (${r.format}) ${scans ? 'registers <waveform-player>, which initialises' : 'does NOT register <waveform-player>'}`,
+				scans ? r.elementDefined && r.element : !r.elementDefined && !r.element,
+				`elementDefined=${r.elementDefined}, element=${r.element}`
+			);
 		}
 	}
 
@@ -189,6 +194,11 @@ console.log(JSON.stringify(out));
 			r.instances === 1 && r.claimed && r.global,
 			`instances=${r.instances}, claimed=${r.claimed}, global=${r.global}`
 		);
+		check(
+			`${label} initialises <waveform-player src=…> from a <script> tag`,
+			r.elementDefined && r.element,
+			`elementDefined=${r.elementDefined}, element=${r.element}`
+		);
 	}
 
 	// ---- 5. Types -----------------------------------------------------------
@@ -202,8 +212,8 @@ console.log(JSON.stringify(out));
 
 	fs.writeFileSync(
 		path.join(consumer, 'probe.ts'),
-		`import Player, { WaveformPlayer, type WaveformPlayerOptions } from '@arraypress/waveform-player';
-import NoInit, { WaveformPlayer as NoInitNamed } from '@arraypress/waveform-player/no-autoinit';
+		`import Player, { WaveformPlayer, WaveformPlayerElement, type WaveformPlayerOptions } from '@arraypress/waveform-player';
+import NoInit, { WaveformPlayer as NoInitNamed, defineWaveformPlayerElement } from '@arraypress/waveform-player/no-autoinit';
 
 // The subpath must expose the same class and the same option surface.
 const a: typeof Player = NoInit;
@@ -224,6 +234,13 @@ built.resizeCanvas();
 built.addEventListener('timeupdate', function (e) { const self: WaveformPlayer = this; return [self, e.type]; });
 document.addEventListener('waveformplayer:seek', (e) => { const t: number = e.detail.currentTime; const p: WaveformPlayer = e.detail.player; return [t, p]; });
 document.body.addEventListener('waveformplayer:volumechange', (e) => { const m: boolean = e.detail.muted; return m; });
+
+// The custom element: typed by tag name, and definable from /no-autoinit.
+const tag = document.createElement('waveform-player');
+export const tagPlayer: WaveformPlayer | null = tag.player;
+export const isElement: boolean = tag instanceof WaveformPlayerElement;
+tag.togglePlay();
+export const defined: CustomElementConstructor | undefined = defineWaveformPlayerElement('my-player');
 `
 	);
 

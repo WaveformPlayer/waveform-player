@@ -517,10 +517,10 @@ const NUMBERS = {
 /**
  * Boolean feature flags. Coerced with {@link toBool} so the string `'false'`
  * (a `data-*` value, or a wrapper that stringified a prop) doesn't read as true.
+ * Also how `<waveform-player>` knows a bare attribute (`loop`) means true.
  * @type {string[]}
- * @private
  */
-const BOOLEANS = [
+export const BOOLEANS = [
     'autoplay', 'showControls', 'showInfo', 'showTime', 'showHoverTime',
     'seekHandle', 'showBPM', 'singlePlay', 'playOnSeek', 'enableMediaSession',
     'showMarkers', 'accessibleSeek', 'showPlaybackSpeed', 'lazy', 'loop', 'showLoop', 'showVolume', 'showDownload'

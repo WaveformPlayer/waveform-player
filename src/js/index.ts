@@ -4,11 +4,12 @@
  *
  * The full runtime surface from `./entry.js` — the {@link WaveformPlayer} class
  * (default and named), the `WaveformPlayer.init` hook, the `WaveformPlayer.utils`
- * helpers and the `window` global — *plus* the one thing that entry point
- * deliberately omits: a scan of the DOM for declarative `[data-waveform-player]`
- * markup, auto-instantiating a player for each match. Loading this module is
- * enough to make any markup-driven players on the page come alive once the DOM
- * is ready.
+ * helpers, the `<waveform-player>` element class and the `window` global —
+ * *plus* the one thing that entry point deliberately omits: making markup come
+ * alive by itself. It registers the `<waveform-player>` element and scans the
+ * DOM for declarative `[data-waveform-player]` markup, auto-instantiating a
+ * player for each match. Loading this module is enough to make any
+ * markup-driven players on the page come alive once the DOM is ready.
  *
  * Two opt-outs, for two different kinds of consumer:
  *
@@ -19,7 +20,7 @@
  *   module.
  */
 
-import WaveformPlayer from './entry.js';
+import WaveformPlayer, {defineWaveformPlayerElement} from './entry.js';
 import {isBrowser} from './utils.js';
 
 /**
@@ -57,10 +58,16 @@ const autoInitDisabled = () => document.documentElement?.dataset.waveformAutoini
 // when the document opts out — the gate sits here rather than inside autoInit()
 // so `WaveformPlayer.init()` stays usable as a manual, page-controlled scan.
 //
-// This block is the *entire* difference between this module and `./entry.js`.
-// Keep it that way: anything added below it belongs in entry.js, or the
+// This block is the *entire* difference between this module and `./entry.js`:
+// the scan, and registering `<waveform-player>` — the same "markup on the page
+// comes alive by itself" side effect for the tag form, behind the same opt-out
+// (a page that opts out can still call `defineWaveformPlayerElement()`). Keep
+// it that way: anything added below it belongs in entry.js, or the
 // no-autoinit entry point silently stops matching this one.
 if (isBrowser() && !autoInitDisabled()) {
+    // Before the scan: an element that upgrades now builds its own player, and
+    // the scan then skips it as already claimed.
+    defineWaveformPlayerElement();
     if (document.readyState === 'loading') {
         // Wrapped, not passed by reference: a listener is called with the Event
         // as its first argument, which `autoInit` would take as its `root`.
@@ -78,6 +85,7 @@ export default WaveformPlayer;
 
 // Named exports
 export {WaveformPlayer};
+export {WaveformPlayerElement, defineWaveformPlayerElement} from './entry.js';
 
 // The public types (options, events, markers), for `import type { ... }`.
 export type {

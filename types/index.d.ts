@@ -4,11 +4,12 @@
  *
  * The full runtime surface from `./entry.js` — the {@link WaveformPlayer} class
  * (default and named), the `WaveformPlayer.init` hook, the `WaveformPlayer.utils`
- * helpers and the `window` global — *plus* the one thing that entry point
- * deliberately omits: a scan of the DOM for declarative `[data-waveform-player]`
- * markup, auto-instantiating a player for each match. Loading this module is
- * enough to make any markup-driven players on the page come alive once the DOM
- * is ready.
+ * helpers, the `<waveform-player>` element class and the `window` global —
+ * *plus* the one thing that entry point deliberately omits: making markup come
+ * alive by itself. It registers the `<waveform-player>` element and scans the
+ * DOM for declarative `[data-waveform-player]` markup, auto-instantiating a
+ * player for each match. Loading this module is enough to make any
+ * markup-driven players on the page come alive once the DOM is ready.
  *
  * Two opt-outs, for two different kinds of consumer:
  *
@@ -25,5 +26,6 @@ import WaveformPlayer from './entry.js';
  */
 export default WaveformPlayer;
 export { WaveformPlayer };
+export { WaveformPlayerElement, defineWaveformPlayerElement } from './entry.js';
 export type { WaveformStyle, ColorPreset, AudioMode, AudioPreload, AudioCrossOrigin, ButtonAlign, WaveformMarker, WaveformPeaks, WaveformTimeUpdateHandler, WaveformPlayerHandler, WaveformErrorHandler, WaveformPlayerOptions, WaveformLifecycleEventDetail, WaveformEndedEventDetail, WaveformTimeUpdateEventDetail, WaveformErrorEventDetail, WaveformSeekEventDetail, WaveformRateChangeEventDetail, WaveformVolumeChangeEventDetail, WaveformLoopEventDetail, WaveformTrackDetail, WaveformRequestEventDetail, WaveformRequestSeekEventDetail, WaveformPlayerEventMap, WaveformPlayerInstanceEventMap, WaveformPlayerUtils, } from './types.js';
 //# sourceMappingURL=index.d.ts.map

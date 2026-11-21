@@ -1,3 +1,17 @@
+/* <waveform-player>: a block, like the <div data-waveform-player> form (a
+   custom element is inline by default). Before the script defines it, it
+   holds a default player's height — 64px waveform + 8px gap + the 13px title
+   line — so the page doesn't shift when it upgrades. Set
+   --wfp-element-height for a taller or shorter configuration. */
+waveform-player {
+    display: block;
+}
+
+waveform-player:not(:defined) {
+    display: block;
+    min-height: var(--wfp-element-height, 90px);
+}
+
 /* Base structure */
 .waveform-player {
     font-family: inherit;
