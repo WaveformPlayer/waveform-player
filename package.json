@@ -3,19 +3,19 @@
   "version": "1.30.2",
   "description": "Lightweight, customizable audio player with waveform visualization",
   "type": "module",
-  "types": "./index.d.ts",
+  "types": "./types/index.d.ts",
   "main": "dist/waveform-player.cjs",
   "module": "dist/waveform-player.esm.js",
   "unpkg": "dist/waveform-player.min.js",
   "exports": {
     ".": {
-      "types": "./index.d.ts",
+      "types": "./types/index.d.ts",
       "import": "./dist/waveform-player.esm.js",
       "require": "./dist/waveform-player.cjs",
       "default": "./dist/waveform-player.esm.js"
     },
     "./no-autoinit": {
-      "types": "./no-autoinit.d.ts",
+      "types": "./types/entry.d.ts",
       "import": "./dist/waveform-player-no-autoinit.esm.js",
       "require": "./dist/waveform-player-no-autoinit.cjs",
       "default": "./dist/waveform-player-no-autoinit.esm.js"
@@ -27,13 +27,12 @@
   "files": [
     "dist/",
     "src/",
-    "index.d.ts",
-    "no-autoinit.d.ts",
+    "types/",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "npm run build:css && npm run build:iife && npm run build:esm && npm run build:cjs && npm run build:min && npm run build:no-autoinit",
+    "build": "npm run build:css && npm run build:iife && npm run build:esm && npm run build:cjs && npm run build:min && npm run build:no-autoinit && npm run build:types",
     "build:css": "esbuild src/css/waveform-player.css --minify --outfile=dist/waveform-player.css",
     "build:iife": "esbuild src/js/index.ts --bundle --format=iife --outfile=dist/waveform-player.js",
     "build:min": "esbuild src/js/index.ts --bundle --format=iife --outfile=dist/waveform-player.min.js --minify",
@@ -51,7 +50,8 @@
     "test:watch": "vitest",
     "test:visual": "node test/visual/theme-matrix.mjs",
     "test:pack": "npm run build && node test/pack/verify.mjs",
-    "prepublishOnly": "npm run test && npm run build"
+    "prepublishOnly": "npm run test && npm run build",
+    "build:types": "rm -rf types && tsc -p tsconfig.build.json"
   },
   "keywords": [
     "audio",

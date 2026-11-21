@@ -31,7 +31,7 @@ describe('entry point packaging', () => {
 
 	it('exposes ./no-autoinit with a condition for every consumer', () => {
 		expect(pkg.exports['./no-autoinit']).toEqual({
-			types: './no-autoinit.d.ts',
+			types: './types/entry.d.ts',
 			import: './dist/waveform-player-no-autoinit.esm.js',
 			require: './dist/waveform-player-no-autoinit.cjs',
 			default: './dist/waveform-player-no-autoinit.esm.js',
@@ -76,8 +76,10 @@ describe('entry point packaging', () => {
 	});
 
 	it('ships the declaration file the subpath resolves to', () => {
-		expect(pkg.files).toContain('no-autoinit.d.ts');
-		expect(existsSync(resolve(root, 'no-autoinit.d.ts'))).toBe(true);
+		// Generated from src at build time (npm run build:types).
+		expect(pkg.files).toContain('types/');
+		expect(existsSync(resolve(root, 'types/entry.d.ts'))).toBe(true);
+		expect(existsSync(resolve(root, 'types/index.d.ts'))).toBe(true);
 	});
 
 	it('marks every bundle as side-effectful', () => {

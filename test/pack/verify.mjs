@@ -61,7 +61,9 @@ fs.mkdirSync(consumer);
 try {
 	// ---- 1. Pack ------------------------------------------------------------
 	console.log('\nPacking…');
-	const packed = JSON.parse(run('npm', ['pack', '--json', '--pack-destination', tmp], PKG_ROOT));
+	// npm <= 11 prints an array; npm 12 an object keyed by package name.
+	const packJson = JSON.parse(run('npm', ['pack', '--json', '--pack-destination', tmp], PKG_ROOT));
+	const packed = Array.isArray(packJson) ? packJson : Object.values(packJson);
 	const tarball = path.join(tmp, packed[0].filename);
 	const shipped = new Set(packed[0].files.map((f) => f.path));
 
