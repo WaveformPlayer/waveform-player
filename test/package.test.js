@@ -38,19 +38,19 @@ describe('entry point packaging', () => {
 		});
 	});
 
-	it('builds the no-autoinit bundles from entry.js, not index.js', () => {
+	it('builds the no-autoinit bundles from entry.ts, not index.ts', () => {
 		// The whole point of the subpath. index.js *is* entry.js plus the
 		// import-time scan, so building this bundle from index.js would ship
 		// something that still scans under a name promising it doesn't.
-		expect(entryOf(pkg.scripts['build:no-autoinit:esm'])).toBe('src/js/entry.js');
-		expect(entryOf(pkg.scripts['build:no-autoinit:cjs'])).toBe('src/js/entry.js');
+		expect(entryOf(pkg.scripts['build:no-autoinit:esm'])).toBe('src/js/entry.ts');
+		expect(entryOf(pkg.scripts['build:no-autoinit:cjs'])).toBe('src/js/entry.ts');
 	});
 
-	it('still builds the default bundles from index.js', () => {
+	it('still builds the default bundles from index.ts', () => {
 		// The mirror image: entry.js here would silently delete auto-init for
 		// every existing consumer.
 		for (const name of ['build:iife', 'build:esm', 'build:cjs', 'build:min']) {
-			expect(entryOf(pkg.scripts[name]), name).toBe('src/js/index.js');
+			expect(entryOf(pkg.scripts[name]), name).toBe('src/js/index.ts');
 		}
 	});
 

@@ -149,7 +149,7 @@ function detectCanvasScheme(): 'dark' | 'light' {
  *   card picks up that card. Defaults to `<body>`.
  * @returns The detected scheme, either `'dark'` or `'light'`.
  */
-export function detectColorScheme(el?: Element): string {
+export function detectColorScheme(el?: Element): 'dark' | 'light' {
     // 1. Explicit theme class names / data attributes win.
     if (hasThemeHint('dark')) return 'dark';
     if (hasThemeHint('light')) return 'light';

@@ -20,6 +20,13 @@
 
 // Import the main class
 import {WaveformPlayer} from './core.js';
+
+declare global {
+    interface Window {
+        /** The script-tag global, set when the bundle loads in a browser. */
+        WaveformPlayer: typeof WaveformPlayer;
+    }
+}
 import {
     formatTime,
     extractTitleFromUrl,
@@ -57,10 +64,10 @@ WaveformPlayer.utils = {formatTime, extractTitleFromUrl, escapeHtml, isSafeHref,
  * Construction errors are caught and logged rather than thrown, so one broken
  * element cannot abort the rest of a scan.
  *
- * @param {HTMLElement} element - Element carrying `data-waveform-player`.
- * @returns {void}
+ * @param element - Element carrying `data-waveform-player`.
+ * @returns 
  */
-function initElement(element) {
+function initElement(element: HTMLElement): void {
     if (
         element.dataset.waveformInitialized === 'true' ||
         WaveformPlayer.getInstance(element)
@@ -97,22 +104,22 @@ function initElement(element) {
  * The scan itself is unconditional — the opt-outs gate only the automatic
  * invocation in `index.js`, never a call made by hand.
  *
- * @param {Document|Element} [root=document] - Subtree to scan. Matched against
+ * @param root - Subtree to scan. Matched against
  *   itself as well as its descendants.
- * @returns {void}
+ * @returns 
  */
-function autoInit(root = document) {
+function autoInit(root: Document | Element = document): void {
     if (!isBrowser()) return;
 
     const scope = root || document;
 
     // `querySelectorAll` never matches its own root, so a caller scoping the
     // scan to a single player (`init(playerEl)`) would silently get nothing.
-    if (scope.matches?.('[data-waveform-player]')) {
-        initElement(scope);
+    if ((scope as Element).matches?.('[data-waveform-player]')) {
+        initElement(scope as HTMLElement);
     }
 
-    scope.querySelectorAll('[data-waveform-player]').forEach(initElement);
+    scope.querySelectorAll<HTMLElement>('[data-waveform-player]').forEach(initElement);
 }
 
 /**
