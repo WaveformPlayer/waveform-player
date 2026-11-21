@@ -15,6 +15,10 @@ All notable changes to this project will be documented in this file.
   from early 2023), up from Chrome 80, Firefox 75 and Safari 14.1. The bundles
   are built for ES2022 and the minified bundle is about 150 bytes smaller
   gzipped.
+- **The script-tag and CommonJS builds run in strict mode.** They now start
+  with `"use strict"`. The ES module build always ran strict, as every ES
+  module does, so this is the same code under the same rules it already
+  ran with there.
 
 ### Removed
 
