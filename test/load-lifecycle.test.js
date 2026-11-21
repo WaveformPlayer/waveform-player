@@ -193,6 +193,25 @@ describe('peaks sidecar URLs', () => {
 
 		expect(el.querySelector('.bpm-value').textContent).toBe('100');
 	});
+
+	it('shows the duration a waveform-gen --compact sidecar carries before metadata', async () => {
+		stubFetch({ 't.json': json({ peaks: 'wp1:gP8', duration: 12.5 }) });
+		const { el, player } = mount();
+
+		await player.loadTrack('t.mp3', null, null, { waveform: 't.json', preload: 'none', autoplay: false });
+
+		expect(player.options.duration).toBe(12.5);
+		expect(el.querySelector('.time-total').textContent).toBe('0:12');
+	});
+
+	it('lets an explicit duration option win over the sidecar', async () => {
+		stubFetch({ 't.json': json({ peaks: [0.5], duration: 12.5 }) });
+		const { el, player } = mount();
+
+		await player.loadTrack('t.mp3', null, null, { waveform: 't.json', duration: 95, preload: 'none', autoplay: false });
+
+		expect(el.querySelector('.time-total').textContent).toBe('1:35');
+	});
 });
 
 describe('external-mode duration and markers', () => {

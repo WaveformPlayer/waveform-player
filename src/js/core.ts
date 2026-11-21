@@ -1947,10 +1947,11 @@ export class WaveformPlayer extends EventTarget {
      * Malformed input degrades to an empty array rather than throwing.
      *
      * A sidecar may be bare peaks (an array or a compact string) or a
-     * `{peaks, markers, bpm}` object, whose `peaks` may also be compact
+     * `{peaks, markers, bpm, duration}` object, whose `peaks` may also be compact
      * (the shape `@arraypress/waveform-gen` writes): its markers apply when the
      * track has none of its own, and its `bpm` feeds the badge when no `bpm`
-     * option is set. A sidecar that fails to fetch (network error, non-2xx) or
+     * option is set, and its `duration` stands in as the `duration` option
+     * when none is set. A sidecar that fails to fetch (network error, non-2xx) or
      * carries no peaks resolves `false` and leaves the canvas as it was —
      * {@link WaveformPlayer#load} then decodes the audio instead. One that
      * resolves after a newer load has started is discarded.
@@ -1997,6 +1998,14 @@ export class WaveformPlayer extends EventTarget {
                     if (bpm) {
                         this.detectedBPM = bpm;
                         this.updateBPMDisplay();
+                    }
+                    // waveform-gen's --compact files carry the track's length:
+                    // it stands in as the `duration` option (a set option wins),
+                    // so a sidecar page shows lengths before any audio loads.
+                    const duration = toFiniteNumber(json.duration, null, {min: 0});
+                    if (duration && !this.options.duration) {
+                        this.options.duration = duration;
+                        this._showDuration();
                     }
                     this.drawWaveform();
                     return true;

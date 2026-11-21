@@ -84,6 +84,10 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **A peaks file's `duration` is used.** A `.json` sidecar written by
+  `waveform-gen --compact` carries the track's length; it now stands in as the
+  `duration` option when none is set, so a page using peaks files (rather than
+  inline peaks) also shows every length before any audio loads.
 - **External-mode play/pause/seek requests carry the track's `duration`**
   (`detail.duration`, null when unset), so a controller such as waveform-bar
   can show the length before the audio loads.
