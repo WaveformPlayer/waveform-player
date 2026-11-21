@@ -157,6 +157,7 @@ export class WaveformPlayer {
     /** @internal */ declare _handleNear: boolean;
     /** @internal */ declare _loadId: number;
     /** @internal */ declare _markerLabelTimer: ReturnType<typeof setTimeout> | null;
+    /** @internal A seek asked for before the audio could seek (see `duration`). */ declare _pendingSeek: number | null;
     /** @internal */ declare _presetKeys: string[];
     /** @internal */ declare _readyTimer: ReturnType<typeof setTimeout>;
     /** @internal */ declare _scheme: string;
@@ -249,6 +250,7 @@ export class WaveformPlayer {
         this.progress = 0;
         this._activeMarkerIndex = -1;
         this._markerLabelTimer = null;
+        this._pendingSeek = null;
         this.isPlaying = false;
         this.isLoading = false;
         this.hasError = false;
@@ -547,6 +549,8 @@ export class WaveformPlayer {
 
         // Show a caller-supplied BPM immediately (no audio decode required).
         this.updateBPMDisplay();
+        // ...and a caller-supplied duration, with the markers placed against it.
+        this._showDuration();
     }
 
     /**
@@ -906,7 +910,7 @@ export class WaveformPlayer {
 
             const key = e.key;
             const hasAudio = !!this.audio;
-            const currentTime = hasAudio ? this.audio!.currentTime : 0;
+            const currentTime = hasAudio ? (this._pendingSeek ?? this.audio!.currentTime) : 0;
 
             // Handle number keys 0-9 for seeking
             if (hasAudio && key >= '0' && key <= '9') {
@@ -922,8 +926,8 @@ export class WaveformPlayer {
                 ' ': () => this.togglePlay(),
             };
             if (hasAudio) {
-                actions['ArrowLeft']  = () => this.seekTo(clamp(currentTime - 5, 0, this.audio!.duration));
-                actions['ArrowRight'] = () => this.seekTo(clamp(currentTime + 5, 0, this.audio!.duration));
+                actions['ArrowLeft']  = () => this.seekTo(clamp(currentTime - 5, 0, this._seekLimit()));
+                actions['ArrowRight'] = () => this.seekTo(clamp(currentTime + 5, 0, this._seekLimit()));
                 actions['ArrowUp']    = () => this.setVolume(clamp(this.audio!.volume + 0.1));
                 actions['ArrowDown']  = () => this.setVolume(clamp(this.audio!.volume - 0.1));
                 actions['m'] = actions['M'] = () => this.audio!.muted = !this.audio!.muted;
@@ -1014,12 +1018,38 @@ export class WaveformPlayer {
      * @internal
      */
     getSeekDuration(): number {
+        // The `duration` option stands in until the real one is known: the
+        // controller's first push (external) or the audio's metadata (self).
         if (this.options.audioMode === 'external') {
-            return this._extDuration || 0;
+            return this._extDuration || this.options.duration || 0;
         }
-        return this.audio && Number.isFinite(this.audio.duration)
+        return (this.audio && Number.isFinite(this.audio.duration)
             ? this.audio.duration
-            : 0;
+            : 0) || this.options.duration || 0;
+    }
+
+    /**
+     * Upper bound for a relative self-mode seek (arrow keys, Media Session
+     * skips): the known duration, else whatever the element reports — so a
+     * live stream's `Infinity` still lets it seek, as it always has.
+     * @returns 
+     * @internal
+     */
+    _seekLimit(): number {
+        return this.getSeekDuration() || this.audio!.duration;
+    }
+
+    /**
+     * Show the `duration` option before the audio's metadata arrives: the total
+     * time, the markers placed against it and the slider's range. A no-op
+     * without the option, so the readout behaves exactly as it always did.
+     * @internal
+     */
+    _showDuration() {
+        if (!this.options.duration) return;
+        if (this.totalTimeEl) this.totalTimeEl.textContent = formatTime(this.getSeekDuration());
+        this.renderMarkers();
+        this.updateSeekAccessibility();
     }
 
     /**
@@ -1029,8 +1059,9 @@ export class WaveformPlayer {
      */
     getSeekCurrentTime(): number {
         if (this.options.audioMode === 'external') {
-            return this.progress * (this._extDuration || 0);
+            return this.progress * this.getSeekDuration();
         }
+        if (this._pendingSeek != null) return this._pendingSeek;
         return this.audio && Number.isFinite(this.audio.currentTime)
             ? this.audio.currentTime
             : 0;
@@ -1120,10 +1151,10 @@ export class WaveformPlayer {
         navigator.mediaSession.setActionHandler('play', () => this.play());
         navigator.mediaSession.setActionHandler('pause', () => this.pause());
         navigator.mediaSession.setActionHandler('seekbackward', () => {
-            this.seekTo(clamp(this.audio!.currentTime - 10, 0, this.audio!.duration));
+            this.seekTo(clamp(this.getSeekCurrentTime() - 10, 0, this._seekLimit()));
         });
         navigator.mediaSession.setActionHandler('seekforward', () => {
-            this.seekTo(clamp(this.audio!.currentTime + 10, 0, this.audio!.duration));
+            this.seekTo(clamp(this.getSeekCurrentTime() + 10, 0, this._seekLimit()));
         });
         navigator.mediaSession.setActionHandler('seekto', (details) => {
             if (details.seekTime !== null) {
@@ -1183,13 +1214,15 @@ export class WaveformPlayer {
      * @internal
      */
     _updatePositionState() {
-        const d = this.audio?.duration;
-        if (WaveformPlayer._sessionOwner !== this || !navigator.mediaSession?.setPositionState || !(d && isFinite(d))) return;
+        // The known duration (the `duration` option before metadata) — the
+        // session owner always has an <audio>.
+        const d = this.getSeekDuration();
+        if (WaveformPlayer._sessionOwner !== this || !navigator.mediaSession?.setPositionState || !d) return;
         try {
             navigator.mediaSession.setPositionState({
                 duration: d,
                 playbackRate: this.audio!.playbackRate || 1,
-                position: clamp(this.audio!.currentTime, 0, d),
+                position: clamp(this.getSeekCurrentTime(), 0, d),
             });
         } catch (e) { /* Media Session is best-effort */ }
     }
@@ -1422,6 +1455,8 @@ export class WaveformPlayer {
             }
             // Keep the seek slider's accessible name in sync with the track.
             this.applySeekLabel(title);
+            // A known duration needs nothing from the audio either.
+            this._showDuration();
 
             // In external mode we don't own an <audio> element — skip
             // src assignment + metadata-wait, but still generate the
@@ -1518,6 +1553,7 @@ export class WaveformPlayer {
         // A seek waiting on / reloading the previous file no longer applies.
         this._cancelCacheSeek?.();
         this._seekReload = null;
+        this._pendingSeek = null;
         this.progress = 0;
         this.waveformData = [];
         this._extDuration = 0;
@@ -1604,10 +1640,11 @@ export class WaveformPlayer {
             this.options.artworkAlt = this.options.artwork ? DEFAULT_OPTIONS.artworkAlt : '';
         }
 
-        // `bpm` and `album` describe one track. mergeOptions() skips null
-        // sources, so without this the previous track's tempo badge and
-        // lock-screen album would carry over to every track after it.
-        for (const key of ['bpm', 'album']) {
+        // `bpm`, `album` and `duration` describe one track. mergeOptions()
+        // skips null sources, so without this the previous track's tempo
+        // badge, lock-screen album and length would carry over to every track
+        // after it.
+        for (const key of ['bpm', 'album', 'duration']) {
             if ((options as Record<string, any>)[key] == null) (this.options as Record<string, any>)[key] = (DEFAULT_OPTIONS as Record<string, any>)[key];
         }
 
@@ -2071,7 +2108,7 @@ export class WaveformPlayer {
             return;
         }
 
-        if (!this.audio || !this.audio.duration) return;
+        if (!this.audio || !(this.audio.duration || this.options.duration)) return;
         this.seekToPercent(targetPercent);
     }
 
@@ -2112,10 +2149,19 @@ export class WaveformPlayer {
         if (this.isDestroying) return;
 
         if (this.totalTimeEl) {
-            this.totalTimeEl.textContent = formatTime(this.audio!.duration);
+            this.totalTimeEl.textContent = formatTime(this.getSeekDuration() || this.audio!.duration);
         }
         // Re-render markers when duration is known
         this.renderMarkers();
+        // A seek made against the `duration` option lands now that the audio
+        // can seek; and if playback started before the metadata (preload
+        // 'none'), the frame loop found no duration and stopped — restart it.
+        if (this.options.duration) {
+            const pending = this._pendingSeek;
+            this._pendingSeek = null;
+            if (pending != null && this.audio!.duration) this.seekTo(pending);
+            if (this.isPlaying) this.startSmoothUpdate();
+        }
         // Duration is now known — publish it to the accessible slider.
         this.updateSeekAccessibility();
     }
@@ -2781,6 +2827,10 @@ export class WaveformPlayer {
      * there is no audio element or duration, or when `seconds` isn't a finite
      * number. External-mode keyboard/click seeks go through
      * {@link WaveformPlayer#seekToSeconds} instead.
+     *
+     * Before the audio's metadata arrives, the `duration` option (when set)
+     * stands in: the playhead moves at once and the audio seeks there as soon
+     * as it can.
      * @param seconds - Target time in seconds.
      */
     seekTo(seconds: number) {
@@ -2789,13 +2839,35 @@ export class WaveformPlayer {
         if (this.audio && this.audio.duration && Number.isFinite(s)) {
             this._seekAudio(clamp(s, 0, this.audio.duration));
             this.updateProgress();
+        } else if (this.audio && this.options.duration && Number.isFinite(s)) {
+            this._deferSeek(clamp(s, 0, this.options.duration));
         }
+    }
+
+    /**
+     * Seek before the audio can (no metadata yet, with the `duration` option
+     * set): move the playhead, readout and slider now, and remember the target
+     * for {@link WaveformPlayer#onMetadataLoaded} to apply. A later seek
+     * replaces it; a new track drops it.
+     * @param time - Target position in seconds, within `duration`.
+     * @internal
+     */
+    _deferSeek(time: number) {
+        this._pendingSeek = time;
+        this.progress = time / this.options.duration!;
+        this.drawWaveform();
+        this._updateSeekHandle();
+        if (this.currentTimeEl) this.currentTimeEl.textContent = formatTime(time);
+        this.updateActiveMarker();
+        this.updateSeekAccessibility();
     }
 
     /**
      * Seek the owned `<audio>` element to a fraction of the track, clamped to
      * `[0, 1]`, and refresh progress. Self mode only — a no-op without an audio
-     * element or duration, or when `percent` isn't a finite number.
+     * element or duration, or when `percent` isn't a finite number. Like
+     * {@link WaveformPlayer#seekTo}, it works before the metadata against the
+     * `duration` option.
      * @param percent - Position as a fraction from 0 to 1.
      */
     seekToPercent(percent: number) {
@@ -2803,6 +2875,8 @@ export class WaveformPlayer {
         if (this.audio && this.audio.duration && Number.isFinite(p)) {
             this._seekAudio(this.audio.duration * clamp(p));
             this.updateProgress();
+        } else if (this.audio && this.options.duration && Number.isFinite(p)) {
+            this._deferSeek(this.options.duration * clamp(p));
         }
     }
 

@@ -73,6 +73,7 @@ export declare const DEFAULT_OPTIONS: {
     height: number;
     samples: number;
     preload: string;
+    duration: null;
     crossOrigin: null;
     audioMode: string;
     playbackRate: number;

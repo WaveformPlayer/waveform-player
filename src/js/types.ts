@@ -93,6 +93,26 @@ export interface WaveformPlayerOptions {
 	/** `<audio>` preload hint. @default 'metadata' */
 	preload?: AudioPreload;
 	/**
+	 * The track's length in seconds (`data-duration`), known before the audio
+	 * says so. Until the audio's metadata arrives — which with `preload: 'none'`
+	 * is only once playback starts — the time readout shows it as the total,
+	 * markers are placed against it, and the hover time, the accessible seek
+	 * slider and the Media Session scrubber use it. A seek in that window (a
+	 * click or key on the waveform, a marker, {@link WaveformPlayer.seekTo} /
+	 * {@link WaveformPlayer.seekToPercent}) moves the playhead at once and is
+	 * applied to the audio as soon as it can seek. The real `audio.duration`
+	 * replaces it once known.
+	 *
+	 * In `audioMode: 'external'` it stands in the same way until the
+	 * controller's first {@link WaveformPlayer.setProgress} supplies the real
+	 * duration; seeks are requested as a percentage of it.
+	 *
+	 * Must be a number greater than 0; anything else is ignored with a warning.
+	 * Per-track: `loadTrack()` resets it unless the call supplies one.
+	 * @default null
+	 */
+	duration?: number | null;
+	/**
 	 * `<audio>` CORS mode. Unset by default so the player behaves like a plain
 	 * `<audio>` and never forces a CORS request (which breaks playback of media
 	 * on origins without `Access-Control-Allow-Origin`). Set only if you need it.

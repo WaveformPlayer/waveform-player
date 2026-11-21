@@ -106,6 +106,7 @@
     if (element.dataset.url) options.url = element.dataset.url;
     setNum("height");
     setNum("samples");
+    setNum("duration", "duration", true);
     if (element.dataset.preload) {
       options.preload = element.dataset.preload;
     }
@@ -761,6 +762,12 @@
     // every-frame scan means a higher value costs no extra extraction time.
     samples: DEFAULT_SAMPLES,
     preload: "metadata",
+    // Known track length in seconds, used until the audio's own metadata
+    // arrives — chiefly with preload 'none', where that is only on play. The
+    // time readout, markers, hover time, the seek slider and Media Session use
+    // it meanwhile; a seek in that window is remembered and applied once the
+    // audio can seek. null = wait for the metadata, as before. Per-track.
+    duration: null,
     // CORS mode for the underlying <audio> element. Left null by default so the
     // player behaves like a plain <audio> and never forces a CORS request —
     // setting 'anonymous' here would break playback of media hosted on origins
@@ -1011,6 +1018,11 @@
       else options.playbackRates = rates;
     }
     options.markers = normalizeMarkers(options.markers);
+    if (supplied("duration")) {
+      const d = toFiniteNumber(options.duration);
+      if (d === null || d <= 0) reject("duration");
+      else options.duration = d;
+    }
     for (const key of ["buttonSize", "buttonRadius"]) {
       if (!supplied(key)) continue;
       const value = options[key];
@@ -1099,6 +1111,7 @@
       this.progress = 0;
       this._activeMarkerIndex = -1;
       this._markerLabelTimer = null;
+      this._pendingSeek = null;
       this.isPlaying = false;
       this.isLoading = false;
       this.hasError = false;
@@ -1314,6 +1327,7 @@
       this.speedMenu = this.container.querySelector(".speed-menu");
       this.resizeCanvas();
       this.updateBPMDisplay();
+      this._showDuration();
     }
     /**
      * Bind the artwork error fallback to an image element.
@@ -1615,7 +1629,7 @@
         if (this._activeElement() !== this.container) return;
         const key = e.key;
         const hasAudio = !!this.audio;
-        const currentTime = hasAudio ? this.audio.currentTime : 0;
+        const currentTime = hasAudio ? this._pendingSeek ?? this.audio.currentTime : 0;
         if (hasAudio && key >= "0" && key <= "9") {
           e.preventDefault();
           this.seekToPercent(parseInt(key) / 10);
@@ -1625,8 +1639,8 @@
           " ": () => this.togglePlay()
         };
         if (hasAudio) {
-          actions["ArrowLeft"] = () => this.seekTo(clamp(currentTime - 5, 0, this.audio.duration));
-          actions["ArrowRight"] = () => this.seekTo(clamp(currentTime + 5, 0, this.audio.duration));
+          actions["ArrowLeft"] = () => this.seekTo(clamp(currentTime - 5, 0, this._seekLimit()));
+          actions["ArrowRight"] = () => this.seekTo(clamp(currentTime + 5, 0, this._seekLimit()));
           actions["ArrowUp"] = () => this.setVolume(clamp(this.audio.volume + 0.1));
           actions["ArrowDown"] = () => this.setVolume(clamp(this.audio.volume - 0.1));
           actions["m"] = actions["M"] = () => this.audio.muted = !this.audio.muted;
@@ -1702,9 +1716,31 @@
      */
     getSeekDuration() {
       if (this.options.audioMode === "external") {
-        return this._extDuration || 0;
+        return this._extDuration || this.options.duration || 0;
       }
-      return this.audio && Number.isFinite(this.audio.duration) ? this.audio.duration : 0;
+      return (this.audio && Number.isFinite(this.audio.duration) ? this.audio.duration : 0) || this.options.duration || 0;
+    }
+    /**
+     * Upper bound for a relative self-mode seek (arrow keys, Media Session
+     * skips): the known duration, else whatever the element reports — so a
+     * live stream's `Infinity` still lets it seek, as it always has.
+     * @returns 
+     * @internal
+     */
+    _seekLimit() {
+      return this.getSeekDuration() || this.audio.duration;
+    }
+    /**
+     * Show the `duration` option before the audio's metadata arrives: the total
+     * time, the markers placed against it and the slider's range. A no-op
+     * without the option, so the readout behaves exactly as it always did.
+     * @internal
+     */
+    _showDuration() {
+      if (!this.options.duration) return;
+      if (this.totalTimeEl) this.totalTimeEl.textContent = formatTime(this.getSeekDuration());
+      this.renderMarkers();
+      this.updateSeekAccessibility();
     }
     /**
      * Current playback position in seconds, regardless of audio mode.
@@ -1713,8 +1749,9 @@
      */
     getSeekCurrentTime() {
       if (this.options.audioMode === "external") {
-        return this.progress * (this._extDuration || 0);
+        return this.progress * this.getSeekDuration();
       }
+      if (this._pendingSeek != null) return this._pendingSeek;
       return this.audio && Number.isFinite(this.audio.currentTime) ? this.audio.currentTime : 0;
     }
     /**
@@ -1783,10 +1820,10 @@
       navigator.mediaSession.setActionHandler("play", () => this.play());
       navigator.mediaSession.setActionHandler("pause", () => this.pause());
       navigator.mediaSession.setActionHandler("seekbackward", () => {
-        this.seekTo(clamp(this.audio.currentTime - 10, 0, this.audio.duration));
+        this.seekTo(clamp(this.getSeekCurrentTime() - 10, 0, this._seekLimit()));
       });
       navigator.mediaSession.setActionHandler("seekforward", () => {
-        this.seekTo(clamp(this.audio.currentTime + 10, 0, this.audio.duration));
+        this.seekTo(clamp(this.getSeekCurrentTime() + 10, 0, this._seekLimit()));
       });
       navigator.mediaSession.setActionHandler("seekto", (details) => {
         if (details.seekTime !== null) {
@@ -1843,13 +1880,13 @@
      * @internal
      */
     _updatePositionState() {
-      const d = this.audio?.duration;
-      if (_WaveformPlayer._sessionOwner !== this || !navigator.mediaSession?.setPositionState || !(d && isFinite(d))) return;
+      const d = this.getSeekDuration();
+      if (_WaveformPlayer._sessionOwner !== this || !navigator.mediaSession?.setPositionState || !d) return;
       try {
         navigator.mediaSession.setPositionState({
           duration: d,
           playbackRate: this.audio.playbackRate || 1,
-          position: clamp(this.audio.currentTime, 0, d)
+          position: clamp(this.getSeekCurrentTime(), 0, d)
         });
       } catch (e) {
       }
@@ -2011,6 +2048,7 @@
           this.titleEl.textContent = title;
         }
         this.applySeekLabel(title);
+        this._showDuration();
         if (audio) {
           audio.src = url;
           if (audio.preload !== "none") {
@@ -2070,6 +2108,7 @@
     _resetTrack() {
       this._cancelCacheSeek?.();
       this._seekReload = null;
+      this._pendingSeek = null;
       this.progress = 0;
       this.waveformData = [];
       this._extDuration = 0;
@@ -2142,7 +2181,7 @@
       } else if (hasArtworkOption) {
         this.options.artworkAlt = this.options.artwork ? DEFAULT_OPTIONS.artworkAlt : "";
       }
-      for (const key of ["bpm", "album"]) {
+      for (const key of ["bpm", "album", "duration"]) {
         if (options[key] == null) this.options[key] = DEFAULT_OPTIONS[key];
       }
       if (options.preload && this.audio) {
@@ -2502,7 +2541,7 @@
         this._requestSeek(targetPercent);
         return;
       }
-      if (!this.audio || !this.audio.duration) return;
+      if (!this.audio || !(this.audio.duration || this.options.duration)) return;
       this.seekToPercent(targetPercent);
     }
     /**
@@ -2531,9 +2570,15 @@
     onMetadataLoaded() {
       if (this.isDestroying) return;
       if (this.totalTimeEl) {
-        this.totalTimeEl.textContent = formatTime(this.audio.duration);
+        this.totalTimeEl.textContent = formatTime(this.getSeekDuration() || this.audio.duration);
       }
       this.renderMarkers();
+      if (this.options.duration) {
+        const pending = this._pendingSeek;
+        this._pendingSeek = null;
+        if (pending != null && this.audio.duration) this.seekTo(pending);
+        if (this.isPlaying) this.startSmoothUpdate();
+      }
       this.updateSeekAccessibility();
     }
     /**
@@ -3078,6 +3123,10 @@
      * there is no audio element or duration, or when `seconds` isn't a finite
      * number. External-mode keyboard/click seeks go through
      * {@link WaveformPlayer#seekToSeconds} instead.
+     *
+     * Before the audio's metadata arrives, the `duration` option (when set)
+     * stands in: the playhead moves at once and the audio seeks there as soon
+     * as it can.
      * @param seconds - Target time in seconds.
      */
     seekTo(seconds) {
@@ -3085,12 +3134,33 @@
       if (this.audio && this.audio.duration && Number.isFinite(s)) {
         this._seekAudio(clamp(s, 0, this.audio.duration));
         this.updateProgress();
+      } else if (this.audio && this.options.duration && Number.isFinite(s)) {
+        this._deferSeek(clamp(s, 0, this.options.duration));
       }
+    }
+    /**
+     * Seek before the audio can (no metadata yet, with the `duration` option
+     * set): move the playhead, readout and slider now, and remember the target
+     * for {@link WaveformPlayer#onMetadataLoaded} to apply. A later seek
+     * replaces it; a new track drops it.
+     * @param time - Target position in seconds, within `duration`.
+     * @internal
+     */
+    _deferSeek(time) {
+      this._pendingSeek = time;
+      this.progress = time / this.options.duration;
+      this.drawWaveform();
+      this._updateSeekHandle();
+      if (this.currentTimeEl) this.currentTimeEl.textContent = formatTime(time);
+      this.updateActiveMarker();
+      this.updateSeekAccessibility();
     }
     /**
      * Seek the owned `<audio>` element to a fraction of the track, clamped to
      * `[0, 1]`, and refresh progress. Self mode only — a no-op without an audio
-     * element or duration, or when `percent` isn't a finite number.
+     * element or duration, or when `percent` isn't a finite number. Like
+     * {@link WaveformPlayer#seekTo}, it works before the metadata against the
+     * `duration` option.
      * @param percent - Position as a fraction from 0 to 1.
      */
     seekToPercent(percent) {
@@ -3098,6 +3168,8 @@
       if (this.audio && this.audio.duration && Number.isFinite(p)) {
         this._seekAudio(this.audio.duration * clamp(p));
         this.updateProgress();
+      } else if (this.audio && this.options.duration && Number.isFinite(p)) {
+        this._deferSeek(this.options.duration * clamp(p));
       }
     }
     /**

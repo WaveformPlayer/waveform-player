@@ -321,6 +321,7 @@ export function parseDataAttributes(element: HTMLElement): Record<string, any> {
     if (element.dataset.url) options.url = element.dataset.url;
     setNum('height');
     setNum('samples');
+    setNum('duration', 'duration', true);
     if (element.dataset.preload) {
         options.preload = element.dataset.preload;
     }

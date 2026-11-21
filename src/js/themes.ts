@@ -248,6 +248,12 @@ export const DEFAULT_OPTIONS = {
     // every-frame scan means a higher value costs no extra extraction time.
     samples: DEFAULT_SAMPLES,
     preload: 'metadata',
+    // Known track length in seconds, used until the audio's own metadata
+    // arrives — chiefly with preload 'none', where that is only on play. The
+    // time readout, markers, hover time, the seek slider and Media Session use
+    // it meanwhile; a seek in that window is remembered and applied once the
+    // audio can seek. null = wait for the metadata, as before. Per-track.
+    duration: null,
     // CORS mode for the underlying <audio> element. Left null by default so the
     // player behaves like a plain <audio> and never forces a CORS request —
     // setting 'anonymous' here would break playback of media hosted on origins
@@ -617,6 +623,13 @@ export function normalizeOptions(options: Record<string, any>): Record<string, a
     }
 
     options.markers = normalizeMarkers(options.markers);
+
+    // A known duration is only useful as a positive length: zero or less would
+    // place every marker at Infinity% and make every seek a seek to 0.
+    if (supplied('duration')) {
+        const d = toFiniteNumber(options.duration);
+        if (d === null || d <= 0) reject('duration'); else options.duration = d;
+    }
 
     // A CSS length is a number (px) or a verbatim unit string ('4rem'); both
     // reach an inline style attribute, escaped, via formatCssLength().

@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.0] — Unreleased
 
+### Added
+
+- **`duration` option** (`data-duration`, seconds). A track length the page
+  already knows, used until the audio's own metadata arrives — which with
+  `preload: 'none'` is only once playback starts. Meanwhile the time readout
+  shows it as the total, markers are placed against it, and the hover time,
+  the accessible seek slider and the Media Session scrubber use it. Seeking in
+  that window (a click, a key, a marker, `seekTo()` / `seekToPercent()`) moves
+  the playhead at once and lands on the audio as soon as it can seek. The real
+  duration replaces it once known. Per-track: `loadTrack()` resets it unless
+  the call supplies one. In external mode it stands in until the controller's
+  first `setProgress()`.
+
 ### Changed
 
 - **Written in TypeScript.** The type declarations are now generated from the

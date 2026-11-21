@@ -228,13 +228,19 @@ export declare class WaveformPlayer {
      * there is no audio element or duration, or when `seconds` isn't a finite
      * number. External-mode keyboard/click seeks go through
      * {@link WaveformPlayer#seekToSeconds} instead.
+     *
+     * Before the audio's metadata arrives, the `duration` option (when set)
+     * stands in: the playhead moves at once and the audio seeks there as soon
+     * as it can.
      * @param seconds - Target time in seconds.
      */
     seekTo(seconds: number): void;
     /**
      * Seek the owned `<audio>` element to a fraction of the track, clamped to
      * `[0, 1]`, and refresh progress. Self mode only — a no-op without an audio
-     * element or duration, or when `percent` isn't a finite number.
+     * element or duration, or when `percent` isn't a finite number. Like
+     * {@link WaveformPlayer#seekTo}, it works before the metadata against the
+     * `duration` option.
      * @param percent - Position as a fraction from 0 to 1.
      */
     seekToPercent(percent: number): void;
