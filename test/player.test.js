@@ -320,6 +320,18 @@ describe('lifecycle + external events', () => {
 		expect(detail.waveform).toEqual([0.1, 0.5, 0.9]);
 	});
 
+	it('forwards the known duration in the request-play detail (null when unset)', () => {
+		// A controller (waveform-bar) needs it to show the length before metadata.
+		const a = track(mount({ duration: 187 }));
+		const b = track(mount());
+		const got = [];
+		for (const { el, player } of [a, b]) {
+			el.addEventListener('waveformplayer:request-play', (e) => got.push(e.detail.duration));
+			player.play();
+		}
+		expect(got).toEqual([187, null]);
+	});
+
 	it('loadTrack({autoplay:false}) loads without playing', async () => {
 		const { el, player } = track(mount());
 		let requested = false;

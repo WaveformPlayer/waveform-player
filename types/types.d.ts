@@ -415,6 +415,8 @@ export interface WaveformTrackDetail {
     markers?: WaveformMarker[];
     /** Pre-computed peaks for the track, if any. */
     waveform?: WaveformPeaks;
+    /** The track's known length in seconds (the `duration` option), or null. */
+    duration: number | null;
     id: string;
     player: WaveformPlayer;
 }

@@ -6,6 +6,7 @@
   "types": "./types/index.d.ts",
   "main": "dist/waveform-player.esm.js",
   "unpkg": "dist/waveform-player.min.js",
+  "jsdelivr": "dist/waveform-player.min.js",
   "exports": {
     ".": {
       "types": "./types/index.d.ts",

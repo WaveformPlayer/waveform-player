@@ -84,6 +84,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- **External-mode play/pause/seek requests carry the track's `duration`**
+  (`detail.duration`, null when unset), so a controller such as waveform-bar
+  can show the length before the audio loads.
+- **A bare jsDelivr URL serves the script-tag build.** `package.json` gains a
+  `jsdelivr` field (`dist/waveform-player.min.js`) beside `unpkg`; without it
+  jsDelivr would serve the ES module build, which can't run from a `<script>`.
 - **Written in TypeScript.** The type declarations are now generated from the
   source instead of being written by hand, so they can no longer drift from
   the code.

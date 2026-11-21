@@ -2841,6 +2841,7 @@ export class WaveformPlayer extends EventTarget {
             artwork:  this.options.artwork,
             markers:  this.options.markers,
             waveform: this.options.waveform,
+            duration: this.options.duration ?? null,
             id:       this.id,
             player:   this
         };
