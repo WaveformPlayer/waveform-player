@@ -51,7 +51,9 @@
     "test:visual": "node test/visual/theme-matrix.mjs",
     "test:pack": "npm run build && node test/pack/verify.mjs",
     "prepublishOnly": "npm run test && npm run build",
-    "build:types": "rm -rf types && tsc -p tsconfig.build.json"
+    "build:types": "rm -rf types && tsc -p tsconfig.build.json",
+    "lint": "biome lint",
+    "typecheck": "tsc -p ."
   },
   "keywords": [
     "audio",

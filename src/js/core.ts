@@ -973,7 +973,7 @@ export class WaveformPlayer {
             if (!duration) return;
 
             const current = this.getSeekCurrentTime();
-            let target;
+            let target: number;
             switch (e.key) {
                 case 'ArrowLeft':
                 case 'ArrowDown':
