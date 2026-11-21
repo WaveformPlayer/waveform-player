@@ -254,6 +254,11 @@ export const DEFAULT_OPTIONS = {
     // it meanwhile; a seek in that window is remembered and applied once the
     // audio can seek. null = wait for the metadata, as before. Per-track.
     duration: null,
+    // Defer the expensive work — assigning the audio source, fetching a peaks
+    // sidecar, decoding, drawing — until the player comes within 200px of the
+    // viewport (one shared IntersectionObserver), or until something needs
+    // it (play, a seek, loadTrack). For pages with many players.
+    lazy: false,
     // CORS mode for the underlying <audio> element. Left null by default so the
     // player behaves like a plain <audio> and never forces a CORS request —
     // setting 'anonymous' here would break playback of media hosted on origins
@@ -498,7 +503,7 @@ const NUMBERS = {
 const BOOLEANS = [
     'autoplay', 'showControls', 'showInfo', 'showTime', 'showHoverTime',
     'seekHandle', 'showBPM', 'singlePlay', 'playOnSeek', 'enableMediaSession',
-    'showMarkers', 'accessibleSeek', 'showPlaybackSpeed'
+    'showMarkers', 'accessibleSeek', 'showPlaybackSpeed', 'lazy'
 ];
 
 /**

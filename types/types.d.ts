@@ -112,6 +112,24 @@ export interface WaveformPlayerOptions {
      * @default null
      */
     crossOrigin?: AudioCrossOrigin | null;
+    /**
+     * Defer the expensive work until the player is needed (`data-lazy`). The
+     * instance is built at once — it is in {@link WaveformPlayer.instances}, its
+     * methods work and {@link WaveformPlayer.init} treats it as initialised — but
+     * assigning the audio source, fetching a peaks sidecar, decoding and drawing
+     * the waveform wait until the container comes within 200px of the viewport
+     * (one IntersectionObserver shared by every lazy player). Until then it shows
+     * what it shows while loading — the title, the loading state and any known
+     * `duration` — at its full height, so nothing shifts when it loads.
+     *
+     * Anything that needs the audio loads it straight away: {@link WaveformPlayer.play}
+     * (so `togglePlay()`, the play button and Space), a seek, {@link WaveformPlayer.load}
+     * or {@link WaveformPlayer.loadTrack}. `autoplay` waits for the player to be loaded.
+     * In `audioMode: 'external'` it defers the peaks the same way. Where
+     * IntersectionObserver is missing, the player loads as if not lazy.
+     * @default false
+     */
+    lazy?: boolean;
     /** Whether the player owns its `<audio>` or delegates to an external controller. @default 'self' */
     audioMode?: AudioMode;
     /** Pre-computed peaks (array, .json URL, or JSON string). Skips Web Audio decoding when provided. */

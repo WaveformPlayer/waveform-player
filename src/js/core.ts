@@ -105,6 +105,9 @@ export class WaveformPlayer {
     /** @internal The player that owns the Media Session controls. */
     declare static _sessionOwner: WaveformPlayer | null | undefined;
 
+    /** @internal One IntersectionObserver for every `lazy` player still waiting, keyed by container. */
+    declare static _lazy: { obs: IntersectionObserver; players: Map<Element, WaveformPlayer> } | null | undefined;
+
     /** @internal One page-wide watcher re-themes auto-themed players when the page scheme flips. */
     declare static _themeWatch: { obs: MutationObserver; mq: MediaQueryList | null; refresh: () => void } | null | undefined;
 
@@ -355,26 +358,92 @@ export class WaveformPlayer {
         this.bindEvents();
         this.setupResizeObserver();
 
-        // Ensure proper sizing after DOM is ready
-        requestAnimationFrame(() => {
-            // Destroyed before the first frame (a wrapper that mounts and
-            // unmounts in one tick): don't start a load for a dead player.
-            if (this.isDestroying) return;
-            this.resizeCanvas();
+        // `lazy`: the expensive part waits until the player nears the viewport.
+        if (this.options.lazy && this.options.url && this._waitForViewport()) return;
 
-            // Load audio if URL provided — unless the caller already started
-            // a load()/loadTrack() before this frame, which would otherwise
-            // be decoded twice and superseded by this one.
-            if (this.options.url && !this._loadId) {
-                this.load(this.options.url).then(() => {
-                    if (this.options.autoplay) {
-                        this.play()?.catch(() => {});
-                    }
-                }).catch(error => {
-                    console.error('[WaveformPlayer] Failed to load audio:', error);
-                });
-            }
-        });
+        // Ensure proper sizing after DOM is ready
+        requestAnimationFrame(() => this._start());
+    }
+
+    /**
+     * Size the canvas and start the first load (and autoplay) — the first
+     * frame after construction, or the moment a `lazy` player is needed.
+     * @internal
+     */
+    _start() {
+        // Destroyed before the first frame (a wrapper that mounts and
+        // unmounts in one tick): don't start a load for a dead player.
+        if (this.isDestroying) return;
+        this.resizeCanvas();
+
+        // Load audio if URL provided — unless the caller already started
+        // a load()/loadTrack() before this frame, which would otherwise
+        // be decoded twice and superseded by this one.
+        if (this.options.url && !this._loadId) {
+            this.load(this.options.url).then(() => {
+                if (this.options.autoplay) {
+                    this.play()?.catch(() => {});
+                }
+            }).catch(error => {
+                console.error('[WaveformPlayer] Failed to load audio:', error);
+            });
+        }
+    }
+
+    /**
+     * Defer {@link WaveformPlayer#_start} until the container comes within
+     * 200px of the viewport, watched by one IntersectionObserver shared by
+     * every lazy player. Meanwhile the player shows what it shows while
+     * loading — title, loading state, any known duration — at its full height.
+     * @returns False where IntersectionObserver is unavailable (load now).
+     * @internal
+     */
+    _waitForViewport(): boolean {
+        if (typeof IntersectionObserver === 'undefined') return false;
+        WaveformPlayer._lazy ??= {
+            players: new Map(),
+            obs: new IntersectionObserver((entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) WaveformPlayer._lazy?.players.get(entry.target)?._wake();
+                }
+            }, {rootMargin: '200px'}),
+        };
+        const lazy = WaveformPlayer._lazy;
+        lazy.players.set(this.container, this);
+        lazy.obs.observe(this.container);
+
+        const title = this.options.title || extractTitleFromUrl(this.options.url);
+        if (this.titleEl) this.titleEl.textContent = title;
+        this.applySeekLabel(title);
+        this.setLoading(true);
+        return true;
+    }
+
+    /**
+     * Stop a `lazy` player's wait for the viewport, dropping the shared
+     * observer once nobody is waiting on it.
+     * @returns Whether the player was waiting.
+     * @internal
+     */
+    _stopWaiting(): boolean {
+        const lazy = WaveformPlayer._lazy;
+        if (lazy?.players.get(this.container) !== this) return false;
+        lazy.players.delete(this.container);
+        lazy.obs.unobserve(this.container);
+        if (!lazy.players.size) {
+            lazy.obs.disconnect();
+            WaveformPlayer._lazy = null;
+        }
+        return true;
+    }
+
+    /**
+     * Load a waiting `lazy` player now: it came into view, or something needs
+     * its audio (play, a seek). A no-op for any other player.
+     * @internal
+     */
+    _wake() {
+        if (this._stopWaiting()) this._start();
     }
 
     /**
@@ -1080,6 +1149,7 @@ export class WaveformPlayer {
      * @fires WaveformPlayer#waveformplayer:request-seek
      */
     seekToSeconds(seconds: number) {
+        this._wake();
         const duration = this.getSeekDuration();
         if (!duration) return;
 
@@ -1418,6 +1488,9 @@ export class WaveformPlayer {
         // below is still pending, and its handlers must still be able to
         // unhook themselves and settle the promise.
         const audio = this.audio;
+        // A lazy player that is loaded by hand (load(), loadTrack()) is no
+        // longer waiting for the viewport.
+        this._stopWaiting();
         try {
             if (url !== this.options.url) this._resetTrack();
             this.setLoading(true);
@@ -2105,6 +2178,7 @@ export class WaveformPlayer {
      * @fires WaveformPlayer#waveformplayer:request-seek
      */
     _seekFromPointer(clientX: number) {
+        this._wake();
         const rect = this.canvas!.getBoundingClientRect();
         if (!rect.width) return;
         const targetPercent = clamp((clientX - rect.left) / rect.width);
@@ -2542,6 +2616,10 @@ export class WaveformPlayer {
      * @fires WaveformPlayer#waveformplayer:request-play
      */
     play(): Promise<void> | undefined {
+        // A lazy player that hasn't loaded yet assigns its source now, so the
+        // play below has something to play.
+        this._wake();
+
         if (this.options.singlePlay && WaveformPlayer.currentlyPlaying &&
             WaveformPlayer.currentlyPlaying !== this) {
             WaveformPlayer.currentlyPlaying.pause();
@@ -2840,6 +2918,7 @@ export class WaveformPlayer {
      * @param seconds - Target time in seconds.
      */
     seekTo(seconds: number) {
+        this._wake();
         // Coerce + guard like setVolume(): `audio.currentTime = NaN` throws.
         const s = Number(seconds);
         if (this.audio && this.audio.duration && Number.isFinite(s)) {
@@ -2877,6 +2956,7 @@ export class WaveformPlayer {
      * @param percent - Position as a fraction from 0 to 1.
      */
     seekToPercent(percent: number) {
+        this._wake();
         const p = Number(percent);
         if (this.audio && this.audio.duration && Number.isFinite(p)) {
             this._seekAudio(this.audio.duration * clamp(p));
@@ -2957,6 +3037,8 @@ export class WaveformPlayer {
 
         // Tear down every document/container/seek listener in one shot.
         this._ac?.abort();
+        // ...and stop waiting for the viewport, if lazy.
+        this._stopWaiting();
 
         // Disconnect observer
         if (this.resizeObserver) {

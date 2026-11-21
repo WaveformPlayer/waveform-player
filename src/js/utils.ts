@@ -398,6 +398,7 @@ export function parseDataAttributes(element: HTMLElement): Record<string, any> {
         options.crossOrigin = element.dataset.crossOrigin;
     }
     if (element.dataset.audioMode) options.audioMode = element.dataset.audioMode;
+    setBool('lazy');
 
     // Waveform style attributes. `data-style` is a shorthand alias for
     // `data-waveform-style`; the canonical long form wins if both are set.

@@ -26,6 +26,12 @@ All notable changes to this project will be documented in this file.
   is unusable peaks, never an error. `WaveformPlayer.utils.encodeCompactPeaks()`
   and `decodeCompactPeaks()` convert; `@arraypress/waveform-gen` writes the
   same format.
+- **`lazy` option** (`data-lazy`). The player is built at once — registered,
+  its methods working — but assigning the audio source, fetching peaks,
+  decoding and drawing wait until it comes within 200px of the viewport, using
+  one IntersectionObserver shared by every lazy player. Playing, seeking,
+  `load()` or `loadTrack()` loads it straight away. Until then it shows the
+  title and loading state at its full height, so nothing shifts.
 
 ### Changed
 

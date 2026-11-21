@@ -138,6 +138,7 @@
       options.crossOrigin = element.dataset.crossOrigin;
     }
     if (element.dataset.audioMode) options.audioMode = element.dataset.audioMode;
+    setBool("lazy");
     if (element.dataset.style) options.waveformStyle = element.dataset.style;
     if (element.dataset.waveformStyle) options.waveformStyle = element.dataset.waveformStyle;
     if (element.dataset.waveformGradient) options.waveformGradient = element.dataset.waveformGradient;
@@ -792,6 +793,11 @@
     // it meanwhile; a seek in that window is remembered and applied once the
     // audio can seek. null = wait for the metadata, as before. Per-track.
     duration: null,
+    // Defer the expensive work — assigning the audio source, fetching a peaks
+    // sidecar, decoding, drawing — until the player comes within 200px of the
+    // viewport (one shared IntersectionObserver), or until something needs
+    // it (play, a seek, loadTrack). For pages with many players.
+    lazy: false,
     // CORS mode for the underlying <audio> element. Left null by default so the
     // player behaves like a plain <audio> and never forces a CORS request —
     // setting 'anonymous' here would break playback of media hosted on origins
@@ -980,7 +986,8 @@
     "enableMediaSession",
     "showMarkers",
     "accessibleSeek",
-    "showPlaybackSpeed"
+    "showPlaybackSpeed",
+    "lazy"
   ];
   var CALLBACKS = [
     "onLoad",
@@ -1208,20 +1215,79 @@
       this.initSeekControl();
       this.bindEvents();
       this.setupResizeObserver();
-      requestAnimationFrame(() => {
-        if (this.isDestroying) return;
-        this.resizeCanvas();
-        if (this.options.url && !this._loadId) {
-          this.load(this.options.url).then(() => {
-            if (this.options.autoplay) {
-              this.play()?.catch(() => {
-              });
-            }
-          }).catch((error) => {
-            console.error("[WaveformPlayer] Failed to load audio:", error);
-          });
-        }
-      });
+      if (this.options.lazy && this.options.url && this._waitForViewport()) return;
+      requestAnimationFrame(() => this._start());
+    }
+    /**
+     * Size the canvas and start the first load (and autoplay) — the first
+     * frame after construction, or the moment a `lazy` player is needed.
+     * @internal
+     */
+    _start() {
+      if (this.isDestroying) return;
+      this.resizeCanvas();
+      if (this.options.url && !this._loadId) {
+        this.load(this.options.url).then(() => {
+          if (this.options.autoplay) {
+            this.play()?.catch(() => {
+            });
+          }
+        }).catch((error) => {
+          console.error("[WaveformPlayer] Failed to load audio:", error);
+        });
+      }
+    }
+    /**
+     * Defer {@link WaveformPlayer#_start} until the container comes within
+     * 200px of the viewport, watched by one IntersectionObserver shared by
+     * every lazy player. Meanwhile the player shows what it shows while
+     * loading — title, loading state, any known duration — at its full height.
+     * @returns False where IntersectionObserver is unavailable (load now).
+     * @internal
+     */
+    _waitForViewport() {
+      if (typeof IntersectionObserver === "undefined") return false;
+      _WaveformPlayer._lazy ??= {
+        players: /* @__PURE__ */ new Map(),
+        obs: new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) _WaveformPlayer._lazy?.players.get(entry.target)?._wake();
+          }
+        }, { rootMargin: "200px" })
+      };
+      const lazy = _WaveformPlayer._lazy;
+      lazy.players.set(this.container, this);
+      lazy.obs.observe(this.container);
+      const title = this.options.title || extractTitleFromUrl(this.options.url);
+      if (this.titleEl) this.titleEl.textContent = title;
+      this.applySeekLabel(title);
+      this.setLoading(true);
+      return true;
+    }
+    /**
+     * Stop a `lazy` player's wait for the viewport, dropping the shared
+     * observer once nobody is waiting on it.
+     * @returns Whether the player was waiting.
+     * @internal
+     */
+    _stopWaiting() {
+      const lazy = _WaveformPlayer._lazy;
+      if (lazy?.players.get(this.container) !== this) return false;
+      lazy.players.delete(this.container);
+      lazy.obs.unobserve(this.container);
+      if (!lazy.players.size) {
+        lazy.obs.disconnect();
+        _WaveformPlayer._lazy = null;
+      }
+      return true;
+    }
+    /**
+     * Load a waiting `lazy` player now: it came into view, or something needs
+     * its audio (play, a seek). A no-op for any other player.
+     * @internal
+     */
+    _wake() {
+      if (this._stopWaiting()) this._start();
     }
     /**
      * Build the player's DOM tree inside the container and cache element
@@ -1791,6 +1857,7 @@
      * @fires WaveformPlayer#waveformplayer:request-seek
      */
     seekToSeconds(seconds) {
+      this._wake();
       const duration = this.getSeekDuration();
       if (!duration) return;
       const clamped = clamp(seconds, 0, duration);
@@ -2056,6 +2123,7 @@
     async load(url) {
       const id = ++this._loadId;
       const audio = this.audio;
+      this._stopWaiting();
       try {
         if (url !== this.options.url) this._resetTrack();
         this.setLoading(true);
@@ -2560,6 +2628,7 @@
      * @fires WaveformPlayer#waveformplayer:request-seek
      */
     _seekFromPointer(clientX) {
+      this._wake();
       const rect = this.canvas.getBoundingClientRect();
       if (!rect.width) return;
       const targetPercent = clamp((clientX - rect.left) / rect.width);
@@ -2902,6 +2971,7 @@
      * @fires WaveformPlayer#waveformplayer:request-play
      */
     play() {
+      this._wake();
       if (this.options.singlePlay && _WaveformPlayer.currentlyPlaying && _WaveformPlayer.currentlyPlaying !== this) {
         _WaveformPlayer.currentlyPlaying.pause();
       }
@@ -3156,6 +3226,7 @@
      * @param seconds - Target time in seconds.
      */
     seekTo(seconds) {
+      this._wake();
       const s = Number(seconds);
       if (this.audio && this.audio.duration && Number.isFinite(s)) {
         this._seekAudio(clamp(s, 0, this.audio.duration));
@@ -3190,6 +3261,7 @@
      * @param percent - Position as a fraction from 0 to 1.
      */
     seekToPercent(percent) {
+      this._wake();
       const p = Number(percent);
       if (this.audio && this.audio.duration && Number.isFinite(p)) {
         this._seekAudio(this.audio.duration * clamp(p));
@@ -3248,6 +3320,7 @@
       clearTimeout(this._readyTimer);
       this._loadId++;
       this._ac?.abort();
+      this._stopWaiting();
       if (this.resizeObserver) {
         this.resizeObserver.disconnect();
         this.resizeObserver = null;
