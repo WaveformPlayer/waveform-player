@@ -18,6 +18,14 @@ All notable changes to this project will be documented in this file.
   duration replaces it once known. Per-track: `loadTrack()` resets it unless
   the call supplies one. In external mode it stands in until the controller's
   first `setProgress()`.
+- **Compact peaks.** Peaks may be given as `"wp1:"` followed by base64url (no
+  padding) of one byte per peak, `round(peak × 255)` — 2404 characters for
+  1800 peaks, about a quarter of a JSON array. Accepted wherever peaks are: the
+  `waveform` option, `data-waveform`, `setWaveformData()`, `loadTrack()` and a
+  `.json` sidecar (as its `peaks` field or the whole file). A malformed string
+  is unusable peaks, never an error. `WaveformPlayer.utils.encodeCompactPeaks()`
+  and `decodeCompactPeaks()` convert; `@arraypress/waveform-gen` writes the
+  same format.
 
 ### Changed
 

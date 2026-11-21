@@ -198,6 +198,75 @@ export function toNumberArray(value: any, opts: Record<string, any> = {}): numbe
 }
 
 /**
+ * Prefix that marks a compact peaks string (format version 1). Shared with
+ * `@arraypress/waveform-gen`, which writes the same format.
+ */
+export const COMPACT_PEAKS_PREFIX = 'wp1:';
+
+/**
+ * Encode peaks as a compact string: `"wp1:"` + base64url (RFC 4648 §5, no
+ * padding) of one unsigned byte per peak, `round(peak × 255)`.
+ *
+ * Peaks are the 0..1 magnitudes the player draws (what `extractPeaks` and
+ * `@arraypress/waveform-gen` produce — every style, mirror included, draws
+ * from magnitudes), so each is clamped to 0..1 first; a non-numeric one
+ * encodes as 0. 1800 peaks become 2404 characters, against roughly 9KB as a
+ * JSON array of two-decimal numbers.
+ *
+ * @param peaks - Peak magnitudes, 0..1.
+ * @returns The compact string.
+ */
+export function encodeCompactPeaks(peaks: readonly number[]): string {
+    // A loop, not String.fromCharCode(...bytes): spreading a long array
+    // overflows the call stack (see maxOf).
+    let bytes = '';
+    for (let i = 0; i < peaks.length; i++) {
+        const p = Number(peaks[i]);
+        bytes += String.fromCharCode(Math.round(clamp(Number.isFinite(p) ? p : 0) * 255));
+    }
+    return COMPACT_PEAKS_PREFIX + btoa(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Decode a {@link encodeCompactPeaks} string back to 0..1 peaks (each within
+ * 1/510 of the value encoded). Never throws: anything that isn't a
+ * well-formed `wp1:` string — another prefix, a character outside the
+ * base64url alphabet, an impossible length — decodes to `[]`, which the
+ * player treats like any other unusable peaks.
+ *
+ * @param s - The compact string.
+ * @returns The peaks, or `[]` when `s` is malformed.
+ */
+export function decodeCompactPeaks(s: string): number[] {
+    const body = typeof s === 'string' && s.trim().startsWith(COMPACT_PEAKS_PREFIX)
+        ? s.trim().slice(COMPACT_PEAKS_PREFIX.length)
+        : null;
+    // A length of 4n+1 can't come from whole bytes.
+    if (body === null || !/^[\w-]*$/.test(body) || body.length % 4 === 1) return [];
+    try {
+        const bytes = atob(body.replace(/-/g, '+').replace(/_/g, '/'));
+        const peaks: number[] = [];
+        for (let i = 0; i < bytes.length; i++) peaks.push(bytes.charCodeAt(i) / 255);
+        return peaks;
+    } catch (e) {
+        return [];
+    }
+}
+
+/**
+ * Coerce supplied peaks — an array, a JSON array string, a delimited list or a
+ * compact `wp1:` string — to numbers, or `[]` when nothing usable is there.
+ *
+ * @param value - Candidate peaks.
+ * @returns The peaks (possibly empty).
+ */
+export function toPeaks(value: any): number[] {
+    return typeof value === 'string' && value.trim().startsWith(COMPACT_PEAKS_PREFIX)
+        ? decodeCompactPeaks(value)
+        : toNumberArray(value, {fallback: []});
+}
+
+/**
  * Return `value` when it is one of `allowed`, else `fallback`. Used for the
  * option surface's closed vocabularies (`layout`, `preload`, `audioMode`, …) so
  * an unrecognised value resolves to the documented default instead of reaching

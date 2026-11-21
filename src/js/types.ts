@@ -61,7 +61,12 @@ export interface WaveformMarker {
  * Pre-computed waveform peaks, OR a pointer to them.
  *
  * - `number[]`            — inline array of peak amplitudes (0..1)
- * - `string` (.json URL)  — JSON file URL the library will `fetch()`
+ * - `string` (`wp1:…`)    — compact peaks: `"wp1:"` + base64url (no padding) of one
+ *   byte per peak, `round(peak × 255)`; see {@link WaveformPlayerUtils.encodeCompactPeaks}.
+ *   About a quarter of the size of a JSON array. A malformed one is unusable
+ *   peaks, never an error.
+ * - `string` (.json URL)  — JSON file URL the library will `fetch()`; its `peaks`
+ *   (or the whole file) may be an array or a compact string
  * - `string` (JSON array) — inline JSON string the library will parse
  * - `null` / omitted      — the library decodes the audio with the Web Audio API at load time
  */
@@ -362,4 +367,12 @@ export interface WaveformPlayerUtils {
 	parseDataAttributes(element: HTMLElement): Partial<WaveformPlayerOptions>;
 	extractPeaks(buffer: Pick<AudioBuffer, 'length' | 'numberOfChannels' | 'getChannelData'>, samples?: number): number[];
 	detectColorScheme(element?: Element): 'dark' | 'light';
+	/**
+	 * Encode 0..1 peaks as a compact `wp1:` string (one byte per peak, values
+	 * clamped to 0..1, base64url without padding) — accepted anywhere peaks
+	 * are. 1800 peaks encode to 2404 characters.
+	 */
+	encodeCompactPeaks(peaks: readonly number[]): string;
+	/** Decode a `wp1:` string to 0..1 peaks; malformed input returns `[]`, never throws. */
+	decodeCompactPeaks(s: string): number[];
 }

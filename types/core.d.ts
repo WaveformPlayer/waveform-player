@@ -100,10 +100,12 @@ export declare class WaveformPlayer {
      * Accepts several shapes: a `.json` URL (fetched async — a query string
      * or fragment is fine, which is what {@link WaveformPlayer.getPeaksUrl}
      * produces for a versioned audio URL), a JSON-encoded array string, a
-     * comma-separated number string, or a plain number array. Malformed input
-     * degrades to an empty array rather than throwing.
+     * comma-separated number string, a compact `wp1:` string (see
+     * `WaveformPlayer.utils.encodeCompactPeaks`), or a plain number array.
+     * Malformed input degrades to an empty array rather than throwing.
      *
-     * A sidecar may be a bare peaks array or a `{peaks, markers, bpm}` object
+     * A sidecar may be bare peaks (an array or a compact string) or a
+     * `{peaks, markers, bpm}` object, whose `peaks` may also be compact
      * (the shape `@arraypress/waveform-gen` writes): its markers apply when the
      * track has none of its own, and its `bpm` feeds the badge when no `bpm`
      * option is set. A sidecar that fails to fetch (network error, non-2xx) or

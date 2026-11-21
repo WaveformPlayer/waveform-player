@@ -124,6 +124,44 @@ export declare function toArray(value: any, fallback?: any): any[] | any;
  */
 export declare function toNumberArray(value: any, opts?: Record<string, any>): number[] | any;
 /**
+ * Prefix that marks a compact peaks string (format version 1). Shared with
+ * `@arraypress/waveform-gen`, which writes the same format.
+ */
+export declare const COMPACT_PEAKS_PREFIX = "wp1:";
+/**
+ * Encode peaks as a compact string: `"wp1:"` + base64url (RFC 4648 §5, no
+ * padding) of one unsigned byte per peak, `round(peak × 255)`.
+ *
+ * Peaks are the 0..1 magnitudes the player draws (what `extractPeaks` and
+ * `@arraypress/waveform-gen` produce — every style, mirror included, draws
+ * from magnitudes), so each is clamped to 0..1 first; a non-numeric one
+ * encodes as 0. 1800 peaks become 2404 characters, against roughly 9KB as a
+ * JSON array of two-decimal numbers.
+ *
+ * @param peaks - Peak magnitudes, 0..1.
+ * @returns The compact string.
+ */
+export declare function encodeCompactPeaks(peaks: readonly number[]): string;
+/**
+ * Decode a {@link encodeCompactPeaks} string back to 0..1 peaks (each within
+ * 1/510 of the value encoded). Never throws: anything that isn't a
+ * well-formed `wp1:` string — another prefix, a character outside the
+ * base64url alphabet, an impossible length — decodes to `[]`, which the
+ * player treats like any other unusable peaks.
+ *
+ * @param s - The compact string.
+ * @returns The peaks, or `[]` when `s` is malformed.
+ */
+export declare function decodeCompactPeaks(s: string): number[];
+/**
+ * Coerce supplied peaks — an array, a JSON array string, a delimited list or a
+ * compact `wp1:` string — to numbers, or `[]` when nothing usable is there.
+ *
+ * @param value - Candidate peaks.
+ * @returns The peaks (possibly empty).
+ */
+export declare function toPeaks(value: any): number[];
+/**
  * Return `value` when it is one of `allowed`, else `fallback`. Used for the
  * option surface's closed vocabularies (`layout`, `preload`, `audioMode`, …) so
  * an unrecognised value resolves to the documented default instead of reaching

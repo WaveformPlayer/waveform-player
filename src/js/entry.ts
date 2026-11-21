@@ -35,6 +35,8 @@ import {
     isSafeHref,
     parseDataAttributes,
     isBrowser,
+    encodeCompactPeaks,
+    decodeCompactPeaks,
 } from './utils.js';
 import {detectColorScheme} from './themes.js';
 import {extractPeaks} from './audio.js';
@@ -51,8 +53,10 @@ import {extractPeaks} from './audio.js';
 // runtime peer rather than importing the module.
 // `extractPeaks` is here so code that decodes audio itself (a worker, a
 // browser extension's offscreen document) draws exactly what the player would,
-// instead of keeping a copy of the algorithm.
-(WaveformPlayer as { utils: WaveformPlayerUtils }).utils = {formatTime, extractTitleFromUrl, escapeHtml, isSafeHref, parseDataAttributes, detectColorScheme, extractPeaks};
+// instead of keeping a copy of the algorithm. `encodeCompactPeaks` /
+// `decodeCompactPeaks` are the `wp1:` peaks format the player accepts anywhere
+// it takes peaks, for code that stores or ships them.
+(WaveformPlayer as { utils: WaveformPlayerUtils }).utils = {formatTime, extractTitleFromUrl, escapeHtml, isSafeHref, parseDataAttributes, detectColorScheme, extractPeaks, encodeCompactPeaks, decodeCompactPeaks};
 
 /**
  * Construct a player for one declarative element, unless it already has one.

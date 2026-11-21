@@ -58,6 +58,30 @@
     const numbers = list.map((v) => toFiniteNumber(v)).filter((n) => n !== null && n >= min && n <= max);
     return numbers.length ? numbers : fallback;
   }
+  var COMPACT_PEAKS_PREFIX = "wp1:";
+  function encodeCompactPeaks(peaks) {
+    let bytes = "";
+    for (let i = 0; i < peaks.length; i++) {
+      const p = Number(peaks[i]);
+      bytes += String.fromCharCode(Math.round(clamp(Number.isFinite(p) ? p : 0) * 255));
+    }
+    return COMPACT_PEAKS_PREFIX + btoa(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function decodeCompactPeaks(s) {
+    const body = typeof s === "string" && s.trim().startsWith(COMPACT_PEAKS_PREFIX) ? s.trim().slice(COMPACT_PEAKS_PREFIX.length) : null;
+    if (body === null || !/^[\w-]*$/.test(body) || body.length % 4 === 1) return [];
+    try {
+      const bytes = atob(body.replace(/-/g, "+").replace(/_/g, "/"));
+      const peaks = [];
+      for (let i = 0; i < bytes.length; i++) peaks.push(bytes.charCodeAt(i) / 255);
+      return peaks;
+    } catch (e) {
+      return [];
+    }
+  }
+  function toPeaks(value) {
+    return typeof value === "string" && value.trim().startsWith(COMPACT_PEAKS_PREFIX) ? decodeCompactPeaks(value) : toNumberArray(value, { fallback: [] });
+  }
   function toEnum(value, allowed, fallback = null) {
     return allowed.includes(value) ? value : fallback;
   }
@@ -2219,10 +2243,12 @@
      * Accepts several shapes: a `.json` URL (fetched async — a query string
      * or fragment is fine, which is what {@link WaveformPlayer.getPeaksUrl}
      * produces for a versioned audio URL), a JSON-encoded array string, a
-     * comma-separated number string, or a plain number array. Malformed input
-     * degrades to an empty array rather than throwing.
+     * comma-separated number string, a compact `wp1:` string (see
+     * `WaveformPlayer.utils.encodeCompactPeaks`), or a plain number array.
+     * Malformed input degrades to an empty array rather than throwing.
      *
-     * A sidecar may be a bare peaks array or a `{peaks, markers, bpm}` object
+     * A sidecar may be bare peaks (an array or a compact string) or a
+     * `{peaks, markers, bpm}` object, whose `peaks` may also be compact
      * (the shape `@arraypress/waveform-gen` writes): its markers apply when the
      * track has none of its own, and its `bpm` feeds the badge when no `bpm`
      * option is set. A sidecar that fails to fetch (network error, non-2xx) or
@@ -2251,7 +2277,7 @@
           return r.json();
         }).then((json) => {
           if (id !== this._loadId) return false;
-          const peaks = toNumberArray(Array.isArray(json) ? json : json?.peaks, { fallback: [] });
+          const peaks = toPeaks(Array.isArray(json) || typeof json === "string" ? json : json?.peaks);
           if (!peaks.length) throw new Error("no peaks");
           this.waveformData = peaks;
           this.container.classList.remove("waveform-is-placeholder");
@@ -2271,7 +2297,7 @@
           return false;
         });
       }
-      this.waveformData = toNumberArray(data, { fallback: [] });
+      this.waveformData = toPeaks(data);
       this.container.classList.remove("waveform-is-placeholder");
       this.drawWaveform();
     }
@@ -3353,7 +3379,7 @@
   };
 
   // src/js/entry.ts
-  WaveformPlayer.utils = { formatTime, extractTitleFromUrl, escapeHtml, isSafeHref, parseDataAttributes, detectColorScheme, extractPeaks };
+  WaveformPlayer.utils = { formatTime, extractTitleFromUrl, escapeHtml, isSafeHref, parseDataAttributes, detectColorScheme, extractPeaks, encodeCompactPeaks, decodeCompactPeaks };
   function initElement(element) {
     if (element.dataset.waveformInitialized === "true" || WaveformPlayer.getInstance(element)) {
       return;
