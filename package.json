@@ -103,9 +103,10 @@
     "./src/js/entry.js"
   ],
   "devDependencies": {
-    "concurrently": "^10.0.3",
-    "esbuild": "^0.28.1",
-    "jsdom": "^29.1.1",
-    "vitest": "^4.1.9"
+    "concurrently": "^10.0.7",
+    "esbuild": "^0.28.2",
+    "jsdom": "^31.0.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
   }
 }
