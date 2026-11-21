@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
 	formatTime,
 	formatSeekValueText,
@@ -189,12 +189,41 @@ describe('parseDataAttributes', () => {
 		expect(o.barRadius).toBe(4);
 	});
 
-	it('ignores the removed 1.x aliases data-color / data-theme', () => {
+	it('lets the canonical attribute win over its deprecated alias (data-color / data-theme)', () => {
+		const el = document.createElement('div');
+		Object.assign(el.dataset, { color: '#f00', waveformColor: '#00f', theme: 'light', colorPreset: 'dark' });
+		const o = parseDataAttributes(el);
+		expect(o.waveformColor).toBe('#00f');
+		expect(o.colorPreset).toBe('dark');
+	});
+
+	it('still honours the deprecated aliases on their own (CDN pages on @latest)', () => {
 		const el = document.createElement('div');
 		Object.assign(el.dataset, { color: '#f00', theme: 'light' });
 		const o = parseDataAttributes(el);
-		expect(o.waveformColor).toBeUndefined();
-		expect(o.colorPreset).toBeUndefined();
+		expect(o.waveformColor).toBe('#f00');
+		expect(o.colorPreset).toBe('light');
+	});
+
+	it('parses a gradient stop array in deprecated data-color like data-waveform-color', () => {
+		const el = document.createElement('div');
+		el.dataset.color = '["#fafafa", "#71717a"]';
+		expect(parseDataAttributes(el).waveformColor).toEqual(['#fafafa', '#71717a']);
+	});
+
+	it('warns once per page per deprecated alias, naming the replacement', async () => {
+		vi.resetModules();
+		const { parseDataAttributes: parse } = await import('../src/js/utils.js');
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		for (let i = 0; i < 3; i++) {
+			const el = document.createElement('div');
+			Object.assign(el.dataset, { color: '#f00', theme: 'light' });
+			parse(el);
+		}
+		const msgs = warn.mock.calls.map((c) => String(c[0]));
+		expect(msgs.filter((m) => m.includes('] data-color '))).toEqual(['[WaveformPlayer] data-color is deprecated and will be removed in 3.0; use data-waveform-color.']);
+		expect(msgs.filter((m) => m.includes('] data-theme '))).toEqual(['[WaveformPlayer] data-theme is deprecated and will be removed in 3.0; use data-color-preset.']);
+		warn.mockRestore();
 	});
 
 	it('reads data-artwork-position', () => {

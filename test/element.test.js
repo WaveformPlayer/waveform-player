@@ -47,6 +47,9 @@ describe('attributes', () => {
 		const keys = new Set();
 		for (const m of fn.matchAll(/dataset\.([a-zA-Z]+)/g)) keys.add(m[1]);
 		for (const m of fn.matchAll(/set(?:Bool|Num|Length|JsonArray)\('([a-zA-Z]+)'(?:, '([a-zA-Z]+)')?/g)) keys.add(m[2] ?? m[1]);
+		// The deprecated 1.x aliases (data-color / data-theme) stay in the parser
+		// for old markup only; the element is new in 2.0 and never had them.
+		for (const deprecated of ['color', 'theme']) keys.delete(deprecated);
 		const kebab = (k) => k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
 
 		const observed = new Set(WaveformPlayerElement.observedAttributes);

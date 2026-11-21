@@ -127,6 +127,14 @@ All notable changes to this project will be documented in this file.
   the animation-frame loop found no duration and stopped. It now restarts when
   the metadata arrives.
 
+### Deprecated
+
+- **The `data-color` and `data-theme` attributes** still work in 2.0 but log a
+  console warning (once per page) and will be removed in 3.0. Use
+  `data-waveform-color` and `data-color-preset`. They stay because pages that
+  load the player from a CDN with `@latest` upgrade to 2.0 without anyone
+  editing their markup.
+
 ### Removed
 
 - **The CommonJS builds** (`waveform-player.cjs` and
@@ -134,8 +142,6 @@ All notable changes to this project will be documented in this file.
   `require('@arraypress/waveform-player')` still works: Node 22.12+ loads the
   ES module build through `require()`, and `engines` now says `>=22.12`. The
   `module` field is gone too; `exports` covers every current bundler.
-- **The `data-color` and `data-theme` attributes.** They were 1.x aliases. Use
-  `data-waveform-color` and `data-color-preset`.
 - **The `webkitAudioContext` fallback** for BPM detection. Every supported
   browser has `AudioContext`.
 - **The square-bar fallback for browsers without `roundRect`.** Every supported

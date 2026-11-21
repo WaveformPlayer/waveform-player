@@ -191,30 +191,6 @@ export declare function toBool(value: any): boolean;
  * @returns `true`/`false` when present, else `undefined`.
  */
 export declare function parseBoolAttr(value: string | undefined): boolean | undefined;
-/**
- * Read every recognised `data-*` attribute off a host element and translate it
- * into a plain options object suitable for `mergeOptions`.
- *
- * Only attributes that are actually present are copied, so the returned object
- * is sparse and never overrides defaults with `undefined`. Numeric attributes
- * are coerced with `parseInt`/`parseFloat`, boolean flags are compared against
- * the literal string `'true'`, and list-valued attributes (`markers`,
- * `playbackRates`) are parsed defensively — anything that isn't a list is
- * warned about and skipped rather than thrown or passed on.
- *
- * This layer only reads and shapes; it does not police values. Ranges and
- * vocabularies are enforced by `normalizeOptions` on the merged result, so the
- * constructor path gets the same guarantees as the `data-*` path.
- *
- * Several attributes are shorthand aliases of a canonical long form: `data-src`
- * → `url`, `data-style` → `waveformStyle`. When both are present the canonical
- * long form is applied last and therefore wins.
- * Colour attributes that accept gradients (`waveformColor`, `progressColor`)
- * are passed through {@link parseColorValue} so a JSON stop array is expanded.
- *
- * @param element - Host element whose `dataset` is inspected.
- * @returns Sparse options object containing only the attributes found.
- */
 export declare function parseDataAttributes(element: HTMLElement): Record<string, any>;
 /**
  * Interpolate a printf-style seek value-text template.

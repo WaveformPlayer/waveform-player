@@ -340,13 +340,28 @@ function parseColorValue(value: string): string | string[] {
  *
  * Several attributes are shorthand aliases of a canonical long form: `data-src`
  * → `url`, `data-style` → `waveformStyle`. When both are present the canonical
- * long form is applied last and therefore wins.
+ * long form is applied last and therefore wins. `data-color` and `data-theme`
+ * are deprecated aliases for `waveformColor` and `colorPreset` (a console
+ * warning, once per page; removed in 3.0).
  * Colour attributes that accept gradients (`waveformColor`, `progressColor`)
  * are passed through {@link parseColorValue} so a JSON stop array is expanded.
  *
  * @param element - Host element whose `dataset` is inspected.
  * @returns Sparse options object containing only the attributes found.
  */
+/** Deprecated attribute names already warned about on this page. */
+const warnedAttributes = new Set<string>();
+
+/**
+ * Warn once per page that a deprecated `data-*` name was used.
+ * @internal
+ */
+function warnDeprecatedAttribute(name: string, replacement: string): void {
+    if (warnedAttributes.has(name)) return;
+    warnedAttributes.add(name);
+    console.warn(`[WaveformPlayer] ${name} is deprecated and will be removed in 3.0; use ${replacement}.`);
+}
+
 export function parseDataAttributes(element: HTMLElement): Record<string, any> {
     const options: Record<string, any> = {};
 
@@ -413,6 +428,20 @@ export function parseDataAttributes(element: HTMLElement): Record<string, any> {
     if (element.dataset.buttonStyle) options.buttonStyle = element.dataset.buttonStyle;
     setLength('buttonSize');
     setLength('buttonRadius');
+
+    // Deprecated 1.x names, still read in 2.0 because CDN pages loading
+    // `@latest` upgrade without editing their markup; removed in 3.0. Read
+    // first, so the canonical attribute below wins when both are set (the
+    // same rule as `data-style` / `data-src`). `data-color` takes the same
+    // values as `data-waveform-color`, gradient stop arrays included.
+    if (element.dataset.color) {
+        warnDeprecatedAttribute('data-color', 'data-waveform-color');
+        options.waveformColor = parseColorValue(element.dataset.color);
+    }
+    if (element.dataset.theme) {
+        warnDeprecatedAttribute('data-theme', 'data-color-preset');
+        options.colorPreset = element.dataset.theme;
+    }
 
     // Color preset
     if (element.dataset.colorPreset) options.colorPreset = element.dataset.colorPreset;

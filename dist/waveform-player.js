@@ -104,6 +104,12 @@
     }
     return value;
   }
+  var warnedAttributes = /* @__PURE__ */ new Set();
+  function warnDeprecatedAttribute(name, replacement) {
+    if (warnedAttributes.has(name)) return;
+    warnedAttributes.add(name);
+    console.warn(`[WaveformPlayer] ${name} is deprecated and will be removed in 3.0; use ${replacement}.`);
+  }
   function parseDataAttributes(element) {
     const options = {};
     const setBool = (optKey, dataKey = optKey) => {
@@ -150,6 +156,14 @@
     if (element.dataset.buttonStyle) options.buttonStyle = element.dataset.buttonStyle;
     setLength("buttonSize");
     setLength("buttonRadius");
+    if (element.dataset.color) {
+      warnDeprecatedAttribute("data-color", "data-waveform-color");
+      options.waveformColor = parseColorValue(element.dataset.color);
+    }
+    if (element.dataset.theme) {
+      warnDeprecatedAttribute("data-theme", "data-color-preset");
+      options.colorPreset = element.dataset.theme;
+    }
     if (element.dataset.colorPreset) options.colorPreset = element.dataset.colorPreset;
     if (element.dataset.waveformColor) options.waveformColor = parseColorValue(element.dataset.waveformColor);
     if (element.dataset.progressColor) options.progressColor = parseColorValue(element.dataset.progressColor);
