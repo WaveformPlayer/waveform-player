@@ -4,11 +4,14 @@
  *
  * Everything the library exposes — the {@link WaveformPlayer} class, the
  * `WaveformPlayer.utils` helper bag, the `WaveformPlayer.init` scan hook, and
- * the `window` global for `<script>`/CDN usage — *except* the document-wide
- * scan that runs on import. That single side effect is the only difference
- * between the two published entry points, so it lives in `index.js` alone:
+ * the `window` global for `<script>`/CDN usage — *except* the import-time
+ * side effects: the document-wide scan and registering `<waveform-player>`.
+ * Those are the only difference between the two published entry points, so
+ * they live in `index.js` alone (this module exports
+ * `defineWaveformPlayerElement()` for pages that register the tag themselves):
  *
- * - `@arraypress/waveform-player` → `index.js`: this surface, plus the scan.
+ * - `@arraypress/waveform-player` → `index.js`: this surface, plus the scan
+ *   and the tag.
  * - `@arraypress/waveform-player/no-autoinit` → this module: never scans.
  *
  * Importing this module is not *completely* free — it still attaches

@@ -2391,14 +2391,16 @@ export class WaveformPlayer extends EventTarget {
         // Re-render markers when duration is known
         this.renderMarkers();
         // A seek made against the `duration` option lands now that the audio
-        // can seek; and if playback started before the metadata (preload
-        // 'none'), the frame loop found no duration and stopped — restart it.
+        // can seek.
         if (this.options.duration) {
             const pending = this._pendingSeek;
             this._pendingSeek = null;
             if (pending != null && this.audio!.duration) this.seekTo(pending);
-            if (this.isPlaying) this.startSmoothUpdate();
         }
+        // If playback started before the metadata (preload 'none'), the frame
+        // loop found no duration and stopped, leaving progress on the ~4Hz
+        // native timeupdate — restart it.
+        if (this.isPlaying) this.startSmoothUpdate();
         // Duration is now known — publish it to the accessible slider.
         this.updateSeekAccessibility();
     }

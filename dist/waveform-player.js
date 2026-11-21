@@ -2831,8 +2831,8 @@
         const pending = this._pendingSeek;
         this._pendingSeek = null;
         if (pending != null && this.audio.duration) this.seekTo(pending);
-        if (this.isPlaying) this.startSmoothUpdate();
       }
+      if (this.isPlaying) this.startSmoothUpdate();
       this.updateSeekAccessibility();
     }
     /**

@@ -213,3 +213,27 @@ describe('external mode', () => {
 		expect(el.querySelector('.time-total').textContent).toBe('0:00');
 	});
 });
+
+describe('playback started before metadata', () => {
+	// The frame loop stops when it finds no duration, so a play() before the
+	// metadata (preload 'none') used to leave progress on the ~4Hz native
+	// timeupdate for the rest of the track. Metadata restarts it.
+	for (const extra of [{}, { duration: 95 }]) {
+		it(`restarts the frame loop when metadata lands (${extra.duration ? 'with' : 'without'} the duration option)`, async () => {
+			const { player } = mount(lazyTrack(extra));
+			await frame();
+			player.isPlaying = true;
+			const spy = vi.spyOn(player, 'startSmoothUpdate');
+			arriveMetadata(player.audio, 100);
+			expect(spy).toHaveBeenCalledTimes(1);
+		});
+	}
+
+	it('does not start the loop when metadata lands while paused', async () => {
+		const { player } = mount(lazyTrack());
+		await frame();
+		const spy = vi.spyOn(player, 'startSmoothUpdate');
+		arriveMetadata(player.audio, 100);
+		expect(spy).not.toHaveBeenCalled();
+	});
+});

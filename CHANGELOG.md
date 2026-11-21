@@ -96,6 +96,14 @@ All notable changes to this project will be documented in this file.
   module does, so this is the same code under the same rules it already
   ran with there.
 
+### Fixed
+
+- **Smooth progress when playback starts before the audio's metadata.** With
+  `preload: 'none'`, pressing play before the file's metadata had loaded left
+  the progress bar on the browser's ~4 updates a second for the whole track:
+  the animation-frame loop found no duration and stopped. It now restarts when
+  the metadata arrives.
+
 ### Removed
 
 - **The CommonJS builds** (`waveform-player.cjs` and
