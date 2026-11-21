@@ -78,3 +78,6 @@ export default WaveformPlayer;
 
 // Named exports
 export {WaveformPlayer};
+
+// The public types (options, events, markers), for `import type { ... }`.
+export type * from './types.js';

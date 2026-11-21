@@ -20,6 +20,7 @@
 
 // Import the main class
 import {WaveformPlayer} from './core.js';
+import type {WaveformPlayerUtils} from './types.js';
 
 declare global {
     interface Window {
@@ -51,7 +52,7 @@ import {extractPeaks} from './audio.js';
 // `extractPeaks` is here so code that decodes audio itself (a worker, a
 // browser extension's offscreen document) draws exactly what the player would,
 // instead of keeping a copy of the algorithm.
-WaveformPlayer.utils = {formatTime, extractTitleFromUrl, escapeHtml, isSafeHref, parseDataAttributes, detectColorScheme, extractPeaks};
+(WaveformPlayer as { utils: WaveformPlayerUtils }).utils = {formatTime, extractTitleFromUrl, escapeHtml, isSafeHref, parseDataAttributes, detectColorScheme, extractPeaks};
 
 /**
  * Construct a player for one declarative element, unless it already has one.
@@ -152,3 +153,6 @@ export default WaveformPlayer;
 
 // Named exports
 export {WaveformPlayer};
+
+// The public types (options, events, markers), for `import type { ... }`.
+export type * from './types.js';
