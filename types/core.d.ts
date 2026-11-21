@@ -268,6 +268,20 @@ export declare class WaveformPlayer extends EventTarget {
      */
     setVolume(volume: number): void;
     /**
+     * The owned `<audio>` element's volume, 0..1 (unaffected by muting — see
+     * {@link WaveformPlayer#setMuted}). `null` in external mode, where the
+     * controller owns volume.
+     * @returns The volume, or `null` in external mode.
+     */
+    getVolume(): number | null;
+    /**
+     * Mute or unmute the owned `<audio>` element, keeping its volume. Works
+     * where scripted volume doesn't (iOS). Self mode only — a no-op in
+     * external mode.
+     * @param muted - True to mute.
+     */
+    setMuted(muted: boolean): void;
+    /**
      * Set the owned `<audio>` element's playback rate (clamped to 0.25–4),
      * persist it onto `this.options.playbackRate`, and refresh the speed UI.
      * Self mode only — a no-op in external mode.

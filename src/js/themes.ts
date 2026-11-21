@@ -348,6 +348,11 @@ export const DEFAULT_OPTIONS = {
     loop: false,
     // A loop toggle button (aria-pressed) in the meta row. Self mode only.
     showLoop: false,
+    // A mute toggle + volume slider in the meta row. Self mode only. Where
+    // scripted volume is ignored (iOS) only the mute toggle shows.
+    showVolume: false,
+    // Initial volume, 0..1. null = leave the element's default (1).
+    volume: null,
     enableMediaSession: true,
 
     // Markers
@@ -396,6 +401,8 @@ export const DEFAULT_OPTIONS = {
     playPauseLabel: 'Play/Pause',
     speedLabel: 'Playback speed',
     loopLabel: 'Loop',
+    volumeLabel: 'Volume',
+    muteLabel: 'Mute',
     artworkAlt: 'Album artwork',
     unknownTrackText: 'Unknown Track',
 
@@ -495,6 +502,7 @@ const NUMBERS = {
     barSpacing: {min: 0},
     barRadius: {min: 0},
     bpm: {min: 1},
+    volume: {min: 0, max: 1},
     // Matches the clamp in setPlaybackRate() — the menu must not offer a rate
     // the setter would then silently refuse.
     playbackRate: {min: PLAYBACK_RATE_MIN, max: PLAYBACK_RATE_MAX}
@@ -509,7 +517,7 @@ const NUMBERS = {
 const BOOLEANS = [
     'autoplay', 'showControls', 'showInfo', 'showTime', 'showHoverTime',
     'seekHandle', 'showBPM', 'singlePlay', 'playOnSeek', 'enableMediaSession',
-    'showMarkers', 'accessibleSeek', 'showPlaybackSpeed', 'lazy', 'loop', 'showLoop'
+    'showMarkers', 'accessibleSeek', 'showPlaybackSpeed', 'lazy', 'loop', 'showLoop', 'showVolume'
 ];
 
 /**

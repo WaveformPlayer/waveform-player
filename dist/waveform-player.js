@@ -165,6 +165,8 @@
     setBool("playOnSeek");
     setBool("loop");
     setBool("showLoop");
+    setBool("showVolume");
+    setNum("volume", "volume", true);
     if (element.dataset.title) options.title = element.dataset.title;
     if (element.dataset.artist) options.artist = element.dataset.artist;
     if (element.dataset.album) options.album = element.dataset.album;
@@ -188,6 +190,8 @@
     if (element.dataset.playPauseLabel) options.playPauseLabel = element.dataset.playPauseLabel;
     if (element.dataset.speedLabel) options.speedLabel = element.dataset.speedLabel;
     if (element.dataset.loopLabel) options.loopLabel = element.dataset.loopLabel;
+    if (element.dataset.volumeLabel) options.volumeLabel = element.dataset.volumeLabel;
+    if (element.dataset.muteLabel) options.muteLabel = element.dataset.muteLabel;
     if (element.dataset.artworkAlt) options.artworkAlt = element.dataset.artworkAlt;
     if (element.dataset.unknownTrackText) options.unknownTrackText = element.dataset.unknownTrackText;
     if (element.dataset.playIcon) options.playIcon = element.dataset.playIcon;
@@ -882,6 +886,11 @@
     loop: false,
     // A loop toggle button (aria-pressed) in the meta row. Self mode only.
     showLoop: false,
+    // A mute toggle + volume slider in the meta row. Self mode only. Where
+    // scripted volume is ignored (iOS) only the mute toggle shows.
+    showVolume: false,
+    // Initial volume, 0..1. null = leave the element's default (1).
+    volume: null,
     enableMediaSession: true,
     // Markers
     markers: [],
@@ -925,6 +934,8 @@
     playPauseLabel: "Play/Pause",
     speedLabel: "Playback speed",
     loopLabel: "Loop",
+    volumeLabel: "Volume",
+    muteLabel: "Mute",
     artworkAlt: "Album artwork",
     unknownTrackText: "Unknown Track",
     // Icons (SVG)
@@ -978,6 +989,7 @@
     barSpacing: { min: 0 },
     barRadius: { min: 0 },
     bpm: { min: 1 },
+    volume: { min: 0, max: 1 },
     // Matches the clamp in setPlaybackRate() — the menu must not offer a rate
     // the setter would then silently refuse.
     playbackRate: { min: PLAYBACK_RATE_MIN, max: PLAYBACK_RATE_MAX }
@@ -998,7 +1010,8 @@
     "showPlaybackSpeed",
     "lazy",
     "loop",
-    "showLoop"
+    "showLoop",
+    "showVolume"
   ];
   var CALLBACKS = [
     "onLoad",
@@ -1091,6 +1104,14 @@
   );
   var svgIcon = (d) => `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="${d}"/></svg>`;
   var LOOP_ICON = svgIcon("M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z");
+  var SPEAKER = "M3 9v6h4l5 5V4L7 9H3z";
+  var VOLUME_ICON = svgIcon(SPEAKER + "m13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02z");
+  var MUTED_ICON = svgIcon(SPEAKER + "m18 .4L19.6 8 17 10.6 14.4 8 13 9.4l2.6 2.6-2.6 2.6 1.4 1.4 2.6-2.6 2.6 2.6 1.4-1.4-2.6-2.6z");
+  function volumeIsScriptable() {
+    const probe = new Audio();
+    probe.volume = 0.5;
+    return probe.volume === 0.5;
+  }
   var SEEK_STEP_SECONDS = 5;
   var SEEK_PAGE_SECONDS = 10;
   var INTERACTIVE_ELEMENTS = 'button, a[href], input, [role="slider"]';
@@ -1239,6 +1260,7 @@
       this.createDOM();
       this.createAudio();
       this.initPlaybackSpeed();
+      this.initVolumeControls();
       this.initKeyboardControls();
       this.initSeekControl();
       this.bindEvents();
@@ -1399,6 +1421,12 @@
           ${this.options.showLoop && this.options.audioMode !== "external" ? `
             <button type="button" class="waveform-ctrl waveform-loop" aria-pressed="${this.options.loop ? "true" : "false"}" aria-label="${escapeHtml(this.options.loopLabel)}">${LOOP_ICON}</button>
           ` : ""}
+          ${this.options.showVolume && this.options.audioMode !== "external" ? `
+            <span class="waveform-volume">
+              <button type="button" class="waveform-ctrl waveform-mute" aria-pressed="false" aria-label="${escapeHtml(this.options.muteLabel)}"><span class="waveform-icon-volume">${VOLUME_ICON}</span><span class="waveform-icon-muted">${MUTED_ICON}</span></button>
+              <input type="range" class="waveform-volume-slider" min="0" max="1" step="0.05" aria-label="${escapeHtml(this.options.volumeLabel)}">
+            </span>
+          ` : ""}
           ${this.options.showTime ? `
             <span class="waveform-time">
               <span class="time-current">0:00</span> / <span class="time-total">0:00</span>
@@ -1447,6 +1475,8 @@
       this.speedBtn = this.container.querySelector(".speed-btn");
       this.speedMenu = this.container.querySelector(".speed-menu");
       this.loopBtn = this.container.querySelector(".waveform-loop");
+      this.muteBtn = this.container.querySelector(".waveform-mute");
+      this.volumeEl = this.container.querySelector(".waveform-volume-slider");
       this.resizeCanvas();
       this.updateBPMDisplay();
       this._showDuration();
@@ -1613,6 +1643,7 @@
         this.audio.crossOrigin = this.options.crossOrigin;
       }
       if (this.options.loop) this.audio.loop = true;
+      if (this.options.volume != null) this.audio.volume = this.options.volume;
     }
     // ============================================
     // Feature Initialization
@@ -1630,6 +1661,30 @@
       if (this.options.showPlaybackSpeed) {
         this.initSpeedControls();
       }
+    }
+    /**
+     * Wire up the `showVolume` controls: the mute toggle, the slider (hidden
+     * where scripted volume is ignored) and their sync with the element's
+     * `volumechange`, whoever changed it. No-op without them (or an `<audio>`).
+     * @internal
+     */
+    initVolumeControls() {
+      const audio = this.audio, mute = this.muteBtn, slider = this.volumeEl;
+      if (!audio || !mute || !slider) return;
+      if (!volumeIsScriptable()) slider.hidden = true;
+      const sync = () => {
+        mute.setAttribute("aria-pressed", audio.muted ? "true" : "false");
+        slider.value = String(audio.volume);
+        slider.setAttribute("aria-valuetext", `${Math.round(audio.volume * 100)}%`);
+      };
+      mute.addEventListener("click", () => this.setMuted(!audio.muted), { signal: this._ac.signal });
+      slider.addEventListener("input", () => {
+        const v = Number(slider.value);
+        this.setVolume(v);
+        if (v > 0 && audio.muted) this.setMuted(false);
+      }, { signal: this._ac.signal });
+      audio.addEventListener("volumechange", sync, { signal: this._ac.signal });
+      sync();
     }
     /**
      * Wire up the playback-speed menu: toggle it open on the speed button,
@@ -3341,6 +3396,24 @@
       if (this.audio && Number.isFinite(v)) {
         this.audio.volume = clamp(v);
       }
+    }
+    /**
+     * The owned `<audio>` element's volume, 0..1 (unaffected by muting — see
+     * {@link WaveformPlayer#setMuted}). `null` in external mode, where the
+     * controller owns volume.
+     * @returns The volume, or `null` in external mode.
+     */
+    getVolume() {
+      return this.audio ? this.audio.volume : null;
+    }
+    /**
+     * Mute or unmute the owned `<audio>` element, keeping its volume. Works
+     * where scripted volume doesn't (iOS). Self mode only — a no-op in
+     * external mode.
+     * @param muted - True to mute.
+     */
+    setMuted(muted) {
+      if (this.audio) this.audio.muted = !!muted;
     }
     /**
      * Set the owned `<audio>` element's playback rate (clamped to 0.25–4),

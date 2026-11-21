@@ -250,6 +250,25 @@ export interface WaveformPlayerOptions {
      * @default false
      */
     showLoop?: boolean;
+    /**
+     * Show volume controls (`data-show-volume`) in the meta row: a mute toggle
+     * (`<button aria-pressed>`, named by `muteLabel`) and a 0..1 range input
+     * (named by `volumeLabel`, spoken as a percentage). Both follow
+     * {@link WaveformPlayer.setVolume} / {@link WaveformPlayer.setMuted}, the `m`
+     * key and any other change to the audio's volume. Where the platform ignores
+     * scripted volume (iOS: a volume set from script reads back unchanged) the
+     * slider is hidden and only the mute toggle shows. Needs `showInfo` (the
+     * meta row); not rendered in `audioMode: 'external'`, where the controller
+     * owns volume.
+     * @default false
+     */
+    showVolume?: boolean;
+    /**
+     * Initial volume, 0..1 (`data-volume`); out-of-range values are clamped.
+     * `null` leaves the element's default. Ignored in `audioMode: 'external'`.
+     * @default null
+     */
+    volume?: number | null;
     /** Register system Media Session controls (self mode only). @default true */
     enableMediaSession?: boolean;
     /** Chapter markers. @default [] */
@@ -281,6 +300,10 @@ export interface WaveformPlayerOptions {
     speedLabel?: string;
     /** Accessible label for the loop toggle (`showLoop`). Localize for non-English UIs. @default 'Loop' */
     loopLabel?: string;
+    /** Accessible label for the volume slider (`showVolume`). Localize for non-English UIs. @default 'Volume' */
+    volumeLabel?: string;
+    /** Accessible label for the mute toggle (`showVolume`). Localize for non-English UIs. @default 'Mute' */
+    muteLabel?: string;
     title?: string | null;
     artist?: string | null;
     artwork?: string | null;

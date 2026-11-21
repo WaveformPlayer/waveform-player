@@ -525,6 +525,34 @@
     outline-offset: 1px;
 }
 
+/* Volume: mute toggle + slider. The toggle swaps its icon with its state. */
+.waveform-volume {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.waveform-mute span {
+    display: inline-flex;
+}
+
+.waveform-mute .waveform-icon-muted,
+.waveform-mute[aria-pressed="true"] .waveform-icon-volume {
+    display: none;
+}
+
+.waveform-mute[aria-pressed="true"] .waveform-icon-muted {
+    display: inline-flex;
+}
+
+.waveform-volume-slider {
+    width: 64px;
+    margin: 0;
+    accent-color: var(--wfp-text-color);
+    cursor: pointer;
+}
+
 .waveform-player.waveform-focused {
     outline: 2px solid var(--wfp-accent);
     outline-offset: 2px;

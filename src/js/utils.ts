@@ -434,6 +434,8 @@ export function parseDataAttributes(element: HTMLElement): Record<string, any> {
     setBool('playOnSeek');
     setBool('loop');
     setBool('showLoop');
+    setBool('showVolume');
+    setNum('volume', 'volume', true);
 
     // Content and metadata
     if (element.dataset.title) options.title = element.dataset.title;
@@ -476,6 +478,8 @@ export function parseDataAttributes(element: HTMLElement): Record<string, any> {
     if (element.dataset.playPauseLabel) options.playPauseLabel = element.dataset.playPauseLabel;
     if (element.dataset.speedLabel) options.speedLabel = element.dataset.speedLabel;
     if (element.dataset.loopLabel) options.loopLabel = element.dataset.loopLabel;
+    if (element.dataset.volumeLabel) options.volumeLabel = element.dataset.volumeLabel;
+    if (element.dataset.muteLabel) options.muteLabel = element.dataset.muteLabel;
     if (element.dataset.artworkAlt) options.artworkAlt = element.dataset.artworkAlt;
     if (element.dataset.unknownTrackText) options.unknownTrackText = element.dataset.unknownTrackText;
 

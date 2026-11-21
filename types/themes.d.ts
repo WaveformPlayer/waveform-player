@@ -105,6 +105,8 @@ export declare const DEFAULT_OPTIONS: {
     playOnSeek: boolean;
     loop: boolean;
     showLoop: boolean;
+    showVolume: boolean;
+    volume: null;
     enableMediaSession: boolean;
     markers: never[];
     showMarkers: boolean;
@@ -120,6 +122,8 @@ export declare const DEFAULT_OPTIONS: {
     playPauseLabel: string;
     speedLabel: string;
     loopLabel: string;
+    volumeLabel: string;
+    muteLabel: string;
     artworkAlt: string;
     unknownTrackText: string;
     playIcon: string;

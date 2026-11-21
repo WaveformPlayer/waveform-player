@@ -66,6 +66,21 @@ const ARTWORK_FALLBACK = 'data:image/svg+xml,' + encodeURIComponent(
 // by its aria-label). Material Symbols paths, 24px grid, drawn in currentColor.
 const svgIcon = (d: string) => `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="${d}"/></svg>`;
 const LOOP_ICON = svgIcon('M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z');
+const SPEAKER = 'M3 9v6h4l5 5V4L7 9H3z';
+const VOLUME_ICON = svgIcon(SPEAKER + 'm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02z');
+const MUTED_ICON = svgIcon(SPEAKER + 'm18 .4L19.6 8 17 10.6 14.4 8 13 9.4l2.6 2.6-2.6 2.6 1.4 1.4 2.6-2.6 2.6 2.6 1.4-1.4-2.6-2.6z');
+
+/**
+ * Whether this platform honours a volume set from script. iOS doesn't — the
+ * hardware buttons own volume and `audio.volume` reads back unchanged — so a
+ * slider there would move without changing anything.
+ * @returns 
+ */
+function volumeIsScriptable(): boolean {
+    const probe = new Audio();
+    probe.volume = 0.5;
+    return probe.volume === 0.5;
+}
 
 // Keyboard seek steps (seconds) for the accessible slider.
 const SEEK_STEP_SECONDS = 5;
@@ -167,6 +182,8 @@ export class WaveformPlayer extends EventTarget {
     /** @internal */ declare speedBtn: HTMLButtonElement | null;
     /** @internal */ declare speedMenu: HTMLElement | null;
     /** @internal */ declare loopBtn: HTMLButtonElement | null;
+    /** @internal */ declare muteBtn: HTMLButtonElement | null;
+    /** @internal */ declare volumeEl: HTMLInputElement | null;
     /** @internal The section loop, if any (see setLoop). */ declare _loopRange: { start: number; end: number } | null;
     /** @internal The next `seeking` is one the player asked for (not a loop wrap). */ declare _ownSeek: boolean;
     /** @internal */ declare seekEl: HTMLElement | null;
@@ -394,6 +411,7 @@ export class WaveformPlayer extends EventTarget {
         this.createDOM();
         this.createAudio();
         this.initPlaybackSpeed();
+        this.initVolumeControls();
         this.initKeyboardControls();
         this.initSeekControl();
         this.bindEvents();
@@ -598,6 +616,12 @@ export class WaveformPlayer extends EventTarget {
           ${this.options.showLoop && this.options.audioMode !== 'external' ? `
             <button type="button" class="waveform-ctrl waveform-loop" aria-pressed="${this.options.loop ? 'true' : 'false'}" aria-label="${escapeHtml(this.options.loopLabel)}">${LOOP_ICON}</button>
           ` : ''}
+          ${this.options.showVolume && this.options.audioMode !== 'external' ? `
+            <span class="waveform-volume">
+              <button type="button" class="waveform-ctrl waveform-mute" aria-pressed="false" aria-label="${escapeHtml(this.options.muteLabel)}"><span class="waveform-icon-volume">${VOLUME_ICON}</span><span class="waveform-icon-muted">${MUTED_ICON}</span></button>
+              <input type="range" class="waveform-volume-slider" min="0" max="1" step="0.05" aria-label="${escapeHtml(this.options.volumeLabel)}">
+            </span>
+          ` : ''}
           ${this.options.showTime ? `
             <span class="waveform-time">
               <span class="time-current">0:00</span> / <span class="time-total">0:00</span>
@@ -657,6 +681,8 @@ export class WaveformPlayer extends EventTarget {
         this.speedBtn = this.container.querySelector<HTMLButtonElement>('.speed-btn');
         this.speedMenu = this.container.querySelector<HTMLElement>('.speed-menu');
         this.loopBtn = this.container.querySelector<HTMLButtonElement>('.waveform-loop');
+        this.muteBtn = this.container.querySelector<HTMLButtonElement>('.waveform-mute');
+        this.volumeEl = this.container.querySelector<HTMLInputElement>('.waveform-volume-slider');
 
         // Set canvas size
         this.resizeCanvas();
@@ -855,6 +881,7 @@ export class WaveformPlayer extends EventTarget {
             this.audio.crossOrigin = this.options.crossOrigin;
         }
         if (this.options.loop) this.audio.loop = true;
+        if (this.options.volume != null) this.audio.volume = this.options.volume;
     }
 
     // ============================================
@@ -884,6 +911,32 @@ export class WaveformPlayer extends EventTarget {
         if (this.options.showPlaybackSpeed) {
             this.initSpeedControls();
         }
+    }
+
+    /**
+     * Wire up the `showVolume` controls: the mute toggle, the slider (hidden
+     * where scripted volume is ignored) and their sync with the element's
+     * `volumechange`, whoever changed it. No-op without them (or an `<audio>`).
+     * @internal
+     */
+    initVolumeControls() {
+        const audio = this.audio, mute = this.muteBtn, slider = this.volumeEl;
+        if (!audio || !mute || !slider) return;
+        if (!volumeIsScriptable()) slider.hidden = true;
+        const sync = () => {
+            mute.setAttribute('aria-pressed', audio.muted ? 'true' : 'false');
+            slider.value = String(audio.volume);
+            slider.setAttribute('aria-valuetext', `${Math.round(audio.volume * 100)}%`);
+        };
+        mute.addEventListener('click', () => this.setMuted(!audio.muted), {signal: this._ac.signal});
+        slider.addEventListener('input', () => {
+            const v = Number(slider.value);
+            this.setVolume(v);
+            // Turning a muted player up means "I want to hear it".
+            if (v > 0 && audio.muted) this.setMuted(false);
+        }, {signal: this._ac.signal});
+        audio.addEventListener('volumechange', sync, {signal: this._ac.signal});
+        sync();
     }
 
     /**
@@ -3057,6 +3110,26 @@ export class WaveformPlayer extends EventTarget {
         if (this.audio && Number.isFinite(v)) {
             this.audio.volume = clamp(v);
         }
+    }
+
+    /**
+     * The owned `<audio>` element's volume, 0..1 (unaffected by muting — see
+     * {@link WaveformPlayer#setMuted}). `null` in external mode, where the
+     * controller owns volume.
+     * @returns The volume, or `null` in external mode.
+     */
+    getVolume(): number | null {
+        return this.audio ? this.audio.volume : null;
+    }
+
+    /**
+     * Mute or unmute the owned `<audio>` element, keeping its volume. Works
+     * where scripted volume doesn't (iOS). Self mode only — a no-op in
+     * external mode.
+     * @param muted - True to mute.
+     */
+    setMuted(muted: boolean) {
+        if (this.audio) this.audio.muted = !!muted;
     }
 
     /**

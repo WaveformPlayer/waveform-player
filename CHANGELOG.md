@@ -53,6 +53,12 @@ All notable changes to this project will be documented in this file.
   `showLoop` (`data-show-loop`) adds a loop toggle button with `aria-pressed`,
   named by `loopLabel`. Each change fires `loop` / `waveformplayer:loop`.
   Self mode only; external mode ignores all of it.
+- **Volume controls.** `showVolume` (`data-show-volume`) adds a mute toggle
+  (`aria-pressed`, `muteLabel`) and a 0..1 volume slider (`volumeLabel`,
+  spoken as a percentage), which follow `setVolume()`, the `m` key and any
+  other change to the audio. Where scripted volume is ignored (iOS) the slider
+  is hidden and mute stays. `volume` (`data-volume`, 0..1) sets the initial
+  volume, and `getVolume()` / `setMuted()` join `setVolume()`. Self mode only.
 
 ### Changed
 
