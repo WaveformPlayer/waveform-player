@@ -2508,10 +2508,12 @@ export class WaveformPlayer extends EventTarget {
         this.audio!.currentTime = 0;
         this.drawWaveform();
 
-        // Reset time display
+        // Reset time display, and what the seek slider announces with it:
+        // screen readers otherwise kept hearing "0:07 of 0:07" at 0:00.
         if (this.currentTimeEl) {
             this.currentTimeEl.textContent = '0:00';
         }
+        this.updateSeekAccessibility();
 
         // Dispatch ended event — carries the final time so listeners (e.g.
         // analytics) don't have to reach into player.audio.

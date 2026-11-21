@@ -108,6 +108,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **The seek slider announces 0:00 after a track ends.** The playhead and the
+  time readout went back to the start, but `aria-valuenow`/`aria-valuetext`
+  kept the final position, so screen readers heard "0:07 of 0:07" at 0:00.
 - **One copy of the player when both entry points are imported.** An app that
   imported the root (as waveform-bar, -playlist and -sounds users do) and
   `/no-autoinit` (as the framework components do) bundled the whole player

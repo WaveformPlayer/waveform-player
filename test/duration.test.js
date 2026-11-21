@@ -237,3 +237,21 @@ describe('playback started before metadata', () => {
 		expect(spy).not.toHaveBeenCalled();
 	});
 });
+
+describe('end of track', () => {
+	it('resets what the seek slider announces along with the playhead', async () => {
+		const { el, player } = mount({ url: 'a.mp3', waveform: PEAKS });
+		await frame();
+		const clock = arriveMetadata(player.audio, 7);
+		clock.currentTime = 7;
+		player.updateSeekAccessibility();
+		const slider = el.querySelector('[role="slider"]');
+		expect(slider.getAttribute('aria-valuenow')).toBe('7');
+
+		player.audio.dispatchEvent(new Event('ended'));
+
+		expect(slider.getAttribute('aria-valuenow')).toBe('0');
+		expect(slider.getAttribute('aria-valuetext')).toMatch(/^0:00\b/);
+	});
+});
+

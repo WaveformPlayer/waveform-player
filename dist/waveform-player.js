@@ -2912,6 +2912,7 @@
       if (this.currentTimeEl) {
         this.currentTimeEl.textContent = "0:00";
       }
+      this.updateSeekAccessibility();
       this._fire("ended", { currentTime: duration, duration });
       if (this.isPlaying) this.onPause();
       if (this.options.onEnd) {
