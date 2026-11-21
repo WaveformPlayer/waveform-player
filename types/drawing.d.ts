@@ -89,20 +89,17 @@ export declare function drawDots(ctx: CanvasRenderingContext2D, canvas: HTMLCanv
  */
 export declare function drawSeekbar(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, peaks: number[], progress: number, options: Record<string, any>): void;
 /**
- * Map of style names (and singular aliases) to their drawing functions.
+ * Map of style names to their drawing functions.
  * Six visually distinct styles including a simple seekbar; keys are matched
  * against `options.waveformStyle` by {@link draw}.
  * @type {Object.<string, function(CanvasRenderingContext2D, HTMLCanvasElement, number[], number, Object): void>}
  */
 export declare const DRAWING_STYLES: {
     bars: typeof drawBars;
-    bar: typeof drawBars;
     mirror: typeof drawMirror;
     line: typeof drawLine;
     blocks: typeof drawBlocks;
-    block: typeof drawBlocks;
     dots: typeof drawDots;
-    dot: typeof drawDots;
     seekbar: typeof drawSeekbar;
 };
 /**

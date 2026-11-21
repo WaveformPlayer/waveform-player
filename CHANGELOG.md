@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] — Unreleased
+
+### Changed
+
+- **Written in TypeScript.** The type declarations are now generated from the
+  source instead of being written by hand, so they can no longer drift from
+  the code.
+- **Browser support is Chrome/Edge 111+, Firefox 114+ and Safari 16.4+** (all
+  from early 2023), up from Chrome 80, Firefox 75 and Safari 14.1. The bundles
+  are built for ES2022 and the minified bundle is about 150 bytes smaller
+  gzipped.
+
+### Removed
+
+- **The `data-color` and `data-theme` attributes.** They were 1.x aliases. Use
+  `data-waveform-color` and `data-color-preset`.
+- **The `webkitAudioContext` fallback** for BPM detection. Every supported
+  browser has `AudioContext`.
+- **The square-bar fallback for browsers without `roundRect`.** Every supported
+  browser has it, so `barRadius` always rounds.
+- **The singular style names `bar`, `block` and `dot`** in the drawing table.
+  They were unreachable: option checking only accepts `bars`, `blocks` and
+  `dots`, so an unknown name already fell back to the default style.
+
 ## [1.30.2] — 2026-11-21
 
 ### Fixed

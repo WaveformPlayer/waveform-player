@@ -170,8 +170,7 @@ export declare function parseBoolAttr(value: string | undefined): boolean | unde
  *
  * Several attributes are shorthand aliases of a canonical long form: `data-src`
  * → `url`, `data-style` → `waveformStyle`. When both are present the canonical
- * long form is applied last and therefore wins. `data-color` and `data-theme`
- * are retained as legacy aliases for `waveformColor` and `colorPreset`.
+ * long form is applied last and therefore wins.
  * Colour attributes that accept gradients (`waveformColor`, `progressColor`)
  * are passed through {@link parseColorValue} so a JSON stop array is expanded.
  *
