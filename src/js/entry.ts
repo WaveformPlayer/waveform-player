@@ -20,13 +20,18 @@
 
 // Import the main class
 import {WaveformPlayer} from './core.js';
-import type {WaveformPlayerUtils} from './types.js';
+import type {WaveformPlayerEventMap, WaveformPlayerUtils} from './types.js';
 
 declare global {
     interface Window {
         /** The script-tag global, set when the bundle loads in a browser. */
         WaveformPlayer: typeof WaveformPlayer;
     }
+
+    // The player's events bubble from its container (the lifecycle ones are
+    // composed too), so one listener on `document` hears every player.
+    interface HTMLElementEventMap extends WaveformPlayerEventMap {}
+    interface DocumentEventMap extends WaveformPlayerEventMap {}
 }
 import {
     formatTime,
@@ -175,9 +180,14 @@ export type {
     WaveformLifecycleEventDetail,
     WaveformEndedEventDetail,
     WaveformTimeUpdateEventDetail,
+    WaveformErrorEventDetail,
+    WaveformSeekEventDetail,
+    WaveformRateChangeEventDetail,
+    WaveformVolumeChangeEventDetail,
     WaveformTrackDetail,
     WaveformRequestEventDetail,
     WaveformRequestSeekEventDetail,
     WaveformPlayerEventMap,
+    WaveformPlayerInstanceEventMap,
     WaveformPlayerUtils,
 } from './types.js';

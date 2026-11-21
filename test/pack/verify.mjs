@@ -218,6 +218,12 @@ export const peaksUrl: string | undefined = WaveformPlayer.getPeaksUrl(null);
 export const sidecar: Promise<boolean> | void = built.setWaveformData('/t.json?v=2');
 built.refreshTheme();
 built.resizeCanvas();
+
+// Events: typed on the instance, and the waveformplayer:* container events are
+// merged into the DOM event maps (e.detail would be an error on a plain Event).
+built.addEventListener('timeupdate', function (e) { const self: WaveformPlayer = this; return [self, e.type]; });
+document.addEventListener('waveformplayer:seek', (e) => { const t: number = e.detail.currentTime; const p: WaveformPlayer = e.detail.player; return [t, p]; });
+document.body.addEventListener('waveformplayer:volumechange', (e) => { const m: boolean = e.detail.muted; return m; });
 `
 	);
 

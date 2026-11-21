@@ -3,7 +3,7 @@
  * @description Main WaveformPlayer class
  */
 
-import type {WaveformPeaks, WaveformPlayerOptions, WaveformPlayerUtils, WaveformTrackDetail} from './types.js';
+import type {WaveformPeaks, WaveformPlayerInstanceEventMap, WaveformPlayerOptions, WaveformPlayerUtils, WaveformTrackDetail} from './types.js';
 import {draw} from './drawing.js';
 import {generateWaveform, generatePlaceholderWaveform} from './audio.js';
 import {
@@ -85,10 +85,27 @@ function speedButtonLabel(rate: number, label?: string): string {
 }
 
 /**
- * WaveformPlayer - Modern audio player with waveform visualization
+ * Typed listeners for the events a player dispatches on itself (see
+ * {@link WaveformPlayerInstanceEventMap}). Types only: merged into the class
+ * below, it emits nothing.
+ */
+export interface WaveformPlayer {
+    addEventListener<K extends keyof WaveformPlayerInstanceEventMap>(type: K, listener: (this: WaveformPlayer, ev: WaveformPlayerInstanceEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void;
+    removeEventListener<K extends keyof WaveformPlayerInstanceEventMap>(type: K, listener: (this: WaveformPlayer, ev: WaveformPlayerInstanceEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+    removeEventListener(type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | EventListenerOptions): void;
+}
+
+/**
+ * WaveformPlayer - Modern audio player with waveform visualization.
+ *
+ * An `EventTarget`: lifecycle events (`play`, `pause`, `ended`, `load`, …)
+ * are dispatched on the instance as plain events, and on the container as
+ * bubbling, composed `waveformplayer:*` CustomEvents carrying the details.
  * @class
  */
-export class WaveformPlayer {
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: see the interface above
+export class WaveformPlayer extends EventTarget {
     static readonly instances: Map<string, WaveformPlayer> = new Map();
 
     static currentlyPlaying: WaveformPlayer | null = null;
@@ -187,6 +204,7 @@ export class WaveformPlayer {
      * @fires WaveformPlayer#waveformplayer:ready
      */
     constructor(container: string | HTMLElement, options: WaveformPlayerOptions = {}) {
+        super();
         // Resolve container
         this.container = (typeof container === 'string'
             ? document.querySelector(container)
@@ -312,13 +330,28 @@ export class WaveformPlayer {
      * @param type - Full event type, e.g. `'waveformplayer:play'`.
      * @param detail - Event detail payload.
      * @param cancelable - Whether the event is cancelable.
+     * @param composed - Whether it crosses shadow-root boundaries.
      * @returns The dispatched event.
      * @internal
      */
-    _emit(type: string, detail: Record<string, any>, cancelable: boolean = false): CustomEvent {
-        const event = new CustomEvent(type, { bubbles: true, cancelable, detail });
+    _emit(type: string, detail: Record<string, any>, cancelable: boolean = false, composed: boolean = false): CustomEvent {
+        const event = new CustomEvent(type, { bubbles: true, cancelable, composed, detail });
         this.container.dispatchEvent(event);
         return event;
+    }
+
+    /**
+     * Announce a lifecycle moment both ways: a bubbling, composed
+     * `waveformplayer:<name>` CustomEvent on the container (detail: the player,
+     * the url and `detail`), then a plain `<name>` Event on the instance.
+     * Callers run the matching `on*` callback after, as they always did.
+     * @param name - Event name without the prefix, e.g. `'play'`.
+     * @param detail - Extra detail fields.
+     * @internal
+     */
+    _fire(name: keyof WaveformPlayerInstanceEventMap, detail: Record<string, any> = {}) {
+        this._emit('waveformplayer:' + name, {player: this, url: this.options.url, ...detail}, false, true);
+        this.dispatchEvent(new Event(name));
     }
 
     /**
@@ -1236,8 +1269,8 @@ export class WaveformPlayer {
         // buttons. Registered only when a host (bar / playlist) supplies a
         // callback; a null handler hides the button.
         const onNext = this.options.onNextTrack, onPrev = this.options.onPreviousTrack;
-        try { navigator.mediaSession.setActionHandler('nexttrack', typeof onNext === 'function' ? () => onNext(this) : null); } catch (e) { /* unsupported */ }
-        try { navigator.mediaSession.setActionHandler('previoustrack', typeof onPrev === 'function' ? () => onPrev(this) : null); } catch (e) { /* unsupported */ }
+        try { navigator.mediaSession.setActionHandler('nexttrack', typeof onNext === 'function' ? () => { this._fire('next'); onNext(this); } : null); } catch (e) { /* unsupported */ }
+        try { navigator.mediaSession.setActionHandler('previoustrack', typeof onPrev === 'function' ? () => { this._fire('previous'); onPrev(this); } : null); } catch (e) { /* unsupported */ }
     }
 
     /**
@@ -1335,11 +1368,23 @@ export class WaveformPlayer {
             // count listening time from. The native event (~4Hz, still fired
             // in the background) takes over only once the loop has gone quiet,
             // so a foreground tab doesn't emit twice.
-            this.audio.addEventListener('seeked', () => this._updatePositionState());
-            this.audio.addEventListener('ratechange', () => this._updatePositionState());
-            this.audio.addEventListener('timeupdate', () => {
+            const audio = this.audio;
+            audio.addEventListener('seeked', () => {
+                this._updatePositionState();
+                this._fire('seek', {currentTime: audio.currentTime, duration: this.getSeekDuration()});
+            });
+            audio.addEventListener('ratechange', () => {
+                this._updatePositionState();
+                this._fire('ratechange', {playbackRate: audio.playbackRate});
+            });
+            audio.addEventListener('volumechange', () => this._fire('volumechange', {volume: audio.volume, muted: audio.muted}));
+            audio.addEventListener('timeupdate', () => {
                 // Not mid cache-reload: currentTime reads 0 until the seek lands.
-                if (this.isPlaying && !this._seekReload && Date.now() - this._frameAt > 500) this.updateProgress();
+                if (this._seekReload) return;
+                if (this.isPlaying && Date.now() - this._frameAt > 500) this.updateProgress();
+                // The instance event keeps the element's own rate (~4Hz), unlike
+                // the container's per-frame waveformplayer:timeupdate.
+                this.dispatchEvent(new Event('timeupdate'));
             });
         }
 
@@ -1595,6 +1640,7 @@ export class WaveformPlayer {
             this.drawWaveform();
             this.renderMarkers();
 
+            this._fire('load');
             // Fire callback
             if (this.options.onLoad) {
                 this.options.onLoad(this);
@@ -2287,7 +2333,7 @@ export class WaveformPlayer {
         this._updateMediaSession('playing');
 
         // Dispatch play event
-        this._emit('waveformplayer:play', {player: this, url: this.options.url});
+        this._fire('play');
 
         if (this.options.onPlay) {
             this.options.onPlay(this);
@@ -2315,7 +2361,7 @@ export class WaveformPlayer {
         this._updateMediaSession('paused');
 
         // Dispatch pause event
-        this._emit('waveformplayer:pause', {player: this, url: this.options.url});
+        this._fire('pause');
 
         if (this.options.onPause) {
             this.options.onPause(this);
@@ -2347,7 +2393,7 @@ export class WaveformPlayer {
 
         // Dispatch ended event — carries the final time so listeners (e.g.
         // analytics) don't have to reach into player.audio.
-        this._emit('waveformplayer:ended', {player: this, url: this.options.url, currentTime: duration, duration});
+        this._fire('ended', {currentTime: duration, duration});
 
         // Browsers fire `pause` before `ended` at the end of a track, and
         // onPause() has usually run already — only settle into paused here
@@ -2375,6 +2421,7 @@ export class WaveformPlayer {
         this._setError(true);
         this.setLoading(false);
 
+        this._fire('error', {error});
         if (this.options.onError) {
             this.options.onError(error, this);
         }
@@ -2453,14 +2500,16 @@ export class WaveformPlayer {
             this.currentTimeEl.textContent = formatTime(this.audio.currentTime);
         }
 
-        // Dispatch timeupdate event
+        // Dispatch timeupdate event — on the container only: this runs every
+        // animation frame, and the instance's `timeupdate` keeps the media
+        // element's rate instead (see bindEvents).
         this._emit('waveformplayer:timeupdate', {
             player: this,
             currentTime: this.audio.currentTime,
             duration: this.audio.duration,
             progress: this.progress,
             url: this.options.url
-        });
+        }, false, true);
 
         if (this.options.onTimeUpdate) {
             this.options.onTimeUpdate(this.audio.currentTime, this.audio.duration, this);
@@ -2702,11 +2751,11 @@ export class WaveformPlayer {
         this.setPlayButtonState(this.isPlaying);
         if (this.isPlaying && !wasPlaying) {
             this.startSmoothUpdate?.();
-            this._emit('waveformplayer:play', {player: this, url: this.options.url});
+            this._fire('play');
             if (this.options.onPlay) this.options.onPlay(this);
         } else if (!this.isPlaying && wasPlaying) {
             this.stopSmoothUpdate?.();
-            this._emit('waveformplayer:pause', {player: this, url: this.options.url});
+            this._fire('pause');
             if (this.options.onPause) this.options.onPause(this);
         }
     }
@@ -2751,7 +2800,7 @@ export class WaveformPlayer {
         }
         this.drawWaveform?.();
         this.updateActiveMarker();
-        this._emit('waveformplayer:timeupdate', {player: this, currentTime, duration, progress: this.progress, url: this.options.url});
+        this._fire('timeupdate', {currentTime, duration, progress: this.progress});
         // Same (currentTime, duration, player) signature as self mode — the
         // arg order used to be swapped here, which made one shared handler
         // impossible across audioModes.
@@ -2762,7 +2811,7 @@ export class WaveformPlayer {
         if (this.progress >= 1) {
             if (!this._extEnded) {
                 this._extEnded = true;
-                this._emit('waveformplayer:ended', {player: this, url: this.options.url, currentTime: duration, duration});
+                this._fire('ended', {currentTime: duration, duration});
                 if (this.options.onEnd) this.options.onEnd(this);
             }
         } else {

@@ -32,6 +32,19 @@ All notable changes to this project will be documented in this file.
   one IntersectionObserver shared by every lazy player. Playing, seeking,
   `load()` or `loadTrack()` loads it straight away. Until then it shows the
   title and loading state at its full height, so nothing shifts.
+- **Standard events.** `WaveformPlayer` now extends `EventTarget`, so
+  `player.addEventListener('play', …)` works and is typed. Every moment that
+  has a callback — `load`, `play`, `pause`, `ended`, `error`, `timeupdate`,
+  `next`, `previous` — plus `seek`, `ratechange` and `volumechange` is
+  dispatched as a plain event on the player and as a bubbling, composed
+  `waveformplayer:<name>` CustomEvent on its container whose `detail` carries
+  the player and the data, so one listener on `document` hears every player,
+  including those in shadow roots. The `waveformplayer:*` events are typed on
+  `HTMLElementEventMap` / `DocumentEventMap`. The callbacks run exactly as
+  before. The instance's `timeupdate` keeps the media element's rate (about
+  4Hz); the container's `waveformplayer:timeupdate` still fires every animation
+  frame while playing, as in 1.x. `seek`, `ratechange` and `volumechange` come
+  from the player's own `<audio>`, so they don't fire in external mode.
 
 ### Changed
 

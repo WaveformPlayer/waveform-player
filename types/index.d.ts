@@ -25,5 +25,5 @@ import WaveformPlayer from './entry.js';
  */
 export default WaveformPlayer;
 export { WaveformPlayer };
-export type { WaveformStyle, ColorPreset, AudioMode, AudioPreload, AudioCrossOrigin, ButtonAlign, WaveformMarker, WaveformPeaks, WaveformTimeUpdateHandler, WaveformPlayerHandler, WaveformErrorHandler, WaveformPlayerOptions, WaveformLifecycleEventDetail, WaveformEndedEventDetail, WaveformTimeUpdateEventDetail, WaveformTrackDetail, WaveformRequestEventDetail, WaveformRequestSeekEventDetail, WaveformPlayerEventMap, WaveformPlayerUtils, } from './types.js';
+export type { WaveformStyle, ColorPreset, AudioMode, AudioPreload, AudioCrossOrigin, ButtonAlign, WaveformMarker, WaveformPeaks, WaveformTimeUpdateHandler, WaveformPlayerHandler, WaveformErrorHandler, WaveformPlayerOptions, WaveformLifecycleEventDetail, WaveformEndedEventDetail, WaveformTimeUpdateEventDetail, WaveformErrorEventDetail, WaveformSeekEventDetail, WaveformRateChangeEventDetail, WaveformVolumeChangeEventDetail, WaveformTrackDetail, WaveformRequestEventDetail, WaveformRequestSeekEventDetail, WaveformPlayerEventMap, WaveformPlayerInstanceEventMap, WaveformPlayerUtils, } from './types.js';
 //# sourceMappingURL=index.d.ts.map

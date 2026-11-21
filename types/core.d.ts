@@ -2,12 +2,27 @@
  * @module core
  * @description Main WaveformPlayer class
  */
-import type { WaveformPeaks, WaveformPlayerOptions, WaveformPlayerUtils } from './types.js';
+import type { WaveformPeaks, WaveformPlayerInstanceEventMap, WaveformPlayerOptions, WaveformPlayerUtils } from './types.js';
 /**
- * WaveformPlayer - Modern audio player with waveform visualization
+ * Typed listeners for the events a player dispatches on itself (see
+ * {@link WaveformPlayerInstanceEventMap}). Types only: merged into the class
+ * below, it emits nothing.
+ */
+export interface WaveformPlayer {
+    addEventListener<K extends keyof WaveformPlayerInstanceEventMap>(type: K, listener: (this: WaveformPlayer, ev: WaveformPlayerInstanceEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void;
+    removeEventListener<K extends keyof WaveformPlayerInstanceEventMap>(type: K, listener: (this: WaveformPlayer, ev: WaveformPlayerInstanceEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+    removeEventListener(type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | EventListenerOptions): void;
+}
+/**
+ * WaveformPlayer - Modern audio player with waveform visualization.
+ *
+ * An `EventTarget`: lifecycle events (`play`, `pause`, `ended`, `load`, …)
+ * are dispatched on the instance as plain events, and on the container as
+ * bubbling, composed `waveformplayer:*` CustomEvents carrying the details.
  * @class
  */
-export declare class WaveformPlayer {
+export declare class WaveformPlayer extends EventTarget {
     static readonly instances: Map<string, WaveformPlayer>;
     static currentlyPlaying: WaveformPlayer | null;
     /** Shared helpers, attached by entry.ts. */

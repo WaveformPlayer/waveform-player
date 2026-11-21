@@ -283,7 +283,7 @@ export interface WaveformPlayerOptions {
     /** Called when the Media Session "previous track" control is used. */
     onPreviousTrack?: WaveformPlayerHandler | null;
 }
-/** `detail` of `waveformplayer:play | pause | ready | destroy`. */
+/** `detail` of `waveformplayer:play | pause | load | next | previous | ready | destroy`. */
 export interface WaveformLifecycleEventDetail {
     player: WaveformPlayer;
     url: string;
@@ -301,6 +301,24 @@ export interface WaveformTimeUpdateEventDetail {
     /** Progress as a 0..1 fraction. */
     progress: number;
     url: string;
+}
+/** `detail` of `waveformplayer:error` — the media error event or the error a load threw. */
+export interface WaveformErrorEventDetail extends WaveformLifecycleEventDetail {
+    error: unknown;
+}
+/** `detail` of `waveformplayer:seek` — where the audio landed. */
+export interface WaveformSeekEventDetail extends WaveformLifecycleEventDetail {
+    currentTime: number;
+    duration: number;
+}
+/** `detail` of `waveformplayer:ratechange`. */
+export interface WaveformRateChangeEventDetail extends WaveformLifecycleEventDetail {
+    playbackRate: number;
+}
+/** `detail` of `waveformplayer:volumechange`. */
+export interface WaveformVolumeChangeEventDetail extends WaveformLifecycleEventDetail {
+    volume: number;
+    muted: boolean;
 }
 /** Track metadata carried by the external-mode `request-*` events. */
 export interface WaveformTrackDetail {
@@ -322,17 +340,64 @@ export interface WaveformRequestSeekEventDetail extends WaveformTrackDetail {
     /** Requested position as a 0..1 fraction of total duration. */
     percent: number;
 }
-/** Map of every custom event the player dispatches on its container (bubbling). */
+/**
+ * Map of every custom event the player dispatches on its container. All bubble,
+ * so one listener on `document` hears every player; the lifecycle events (all
+ * but `ready`, `destroy` and the cancelable `request-*`) are also `composed`,
+ * so they leave a shadow root. Merged into `HTMLElementEventMap` and
+ * `DocumentEventMap`, so `addEventListener('waveformplayer:play', …)` is typed.
+ *
+ * `seek`, `ratechange` and `volumechange` come from the player's own
+ * `<audio>`, so they don't fire in `audioMode: 'external'`; `next` / `previous`
+ * fire when the lock-screen controls registered by `onNextTrack` /
+ * `onPreviousTrack` are used. `waveformplayer:timeupdate` fires every
+ * animation frame while playing in self mode, as in 1.x (the instance's
+ * `timeupdate` keeps the media element's rate).
+ */
 export interface WaveformPlayerEventMap {
     'waveformplayer:ready': CustomEvent<WaveformLifecycleEventDetail>;
+    'waveformplayer:load': CustomEvent<WaveformLifecycleEventDetail>;
     'waveformplayer:play': CustomEvent<WaveformLifecycleEventDetail>;
     'waveformplayer:pause': CustomEvent<WaveformLifecycleEventDetail>;
     'waveformplayer:destroy': CustomEvent<WaveformLifecycleEventDetail>;
     'waveformplayer:ended': CustomEvent<WaveformEndedEventDetail>;
+    'waveformplayer:error': CustomEvent<WaveformErrorEventDetail>;
     'waveformplayer:timeupdate': CustomEvent<WaveformTimeUpdateEventDetail>;
+    'waveformplayer:next': CustomEvent<WaveformLifecycleEventDetail>;
+    'waveformplayer:previous': CustomEvent<WaveformLifecycleEventDetail>;
+    'waveformplayer:seek': CustomEvent<WaveformSeekEventDetail>;
+    'waveformplayer:ratechange': CustomEvent<WaveformRateChangeEventDetail>;
+    'waveformplayer:volumechange': CustomEvent<WaveformVolumeChangeEventDetail>;
     'waveformplayer:request-play': CustomEvent<WaveformRequestEventDetail>;
     'waveformplayer:request-pause': CustomEvent<WaveformRequestEventDetail>;
     'waveformplayer:request-seek': CustomEvent<WaveformRequestSeekEventDetail>;
+}
+/**
+ * The plain events a {@link WaveformPlayer} dispatches on itself — it is an
+ * `EventTarget`, so `player.addEventListener('play', …)` works and is typed.
+ * Each mirrors a `waveformplayer:*` container event (whose `detail` carries the
+ * data) and, where one exists, the matching `on*` callback, which still runs.
+ *
+ * - `load` (`onLoad`), `play` (`onPlay`), `pause` (`onPause`), `ended` (`onEnd`),
+ *   `error` (`onError`), `next` (`onNextTrack`), `previous` (`onPreviousTrack`).
+ * - `timeupdate` (`onTimeUpdate`) — at the media element's own rate (about 4Hz,
+ *   and on seeks), never every animation frame; in external mode, once per
+ *   {@link WaveformPlayer.setProgress}.
+ * - `seek`, `ratechange`, `volumechange` — when the player's `<audio>` reports
+ *   them; self mode only.
+ */
+export interface WaveformPlayerInstanceEventMap {
+    load: Event;
+    play: Event;
+    pause: Event;
+    ended: Event;
+    error: Event;
+    timeupdate: Event;
+    next: Event;
+    previous: Event;
+    seek: Event;
+    ratechange: Event;
+    volumechange: Event;
 }
 /** The helpers exposed as `WaveformPlayer.utils`. */
 export interface WaveformPlayerUtils {

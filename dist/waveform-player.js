@@ -1084,7 +1084,7 @@
   function speedButtonLabel(rate, label) {
     return label ? `${rate}x ${label}` : `${rate}x`;
   }
-  var WaveformPlayer = class _WaveformPlayer {
+  var WaveformPlayer = class _WaveformPlayer extends EventTarget {
     static instances = /* @__PURE__ */ new Map();
     static currentlyPlaying = null;
     /** Audio URLs already warned about lacking byte-range support. @internal */
@@ -1107,6 +1107,7 @@
      * @fires WaveformPlayer#waveformplayer:ready
      */
     constructor(container, options = {}) {
+      super();
       this.container = typeof container === "string" ? document.querySelector(container) : container;
       if (!this.container) {
         throw new Error("[WaveformPlayer] Container element not found");
@@ -1173,13 +1174,27 @@
      * @param type - Full event type, e.g. `'waveformplayer:play'`.
      * @param detail - Event detail payload.
      * @param cancelable - Whether the event is cancelable.
+     * @param composed - Whether it crosses shadow-root boundaries.
      * @returns The dispatched event.
      * @internal
      */
-    _emit(type, detail, cancelable = false) {
-      const event = new CustomEvent(type, { bubbles: true, cancelable, detail });
+    _emit(type, detail, cancelable = false, composed = false) {
+      const event = new CustomEvent(type, { bubbles: true, cancelable, composed, detail });
       this.container.dispatchEvent(event);
       return event;
+    }
+    /**
+     * Announce a lifecycle moment both ways: a bubbling, composed
+     * `waveformplayer:<name>` CustomEvent on the container (detail: the player,
+     * the url and `detail`), then a plain `<name>` Event on the instance.
+     * Callers run the matching `on*` callback after, as they always did.
+     * @param name - Event name without the prefix, e.g. `'play'`.
+     * @param detail - Extra detail fields.
+     * @internal
+     */
+    _fire(name, detail = {}) {
+      this._emit("waveformplayer:" + name, { player: this, url: this.options.url, ...detail }, false, true);
+      this.dispatchEvent(new Event(name));
     }
     /**
      * External-mode seek request: dispatch a cancelable
@@ -1923,11 +1938,17 @@
       });
       const onNext = this.options.onNextTrack, onPrev = this.options.onPreviousTrack;
       try {
-        navigator.mediaSession.setActionHandler("nexttrack", typeof onNext === "function" ? () => onNext(this) : null);
+        navigator.mediaSession.setActionHandler("nexttrack", typeof onNext === "function" ? () => {
+          this._fire("next");
+          onNext(this);
+        } : null);
       } catch (e) {
       }
       try {
-        navigator.mediaSession.setActionHandler("previoustrack", typeof onPrev === "function" ? () => onPrev(this) : null);
+        navigator.mediaSession.setActionHandler("previoustrack", typeof onPrev === "function" ? () => {
+          this._fire("previous");
+          onPrev(this);
+        } : null);
       } catch (e) {
       }
     }
@@ -2004,10 +2025,20 @@
         this.audio.addEventListener("pause", () => this.onPause());
         this.audio.addEventListener("ended", () => this.onEnded());
         this.audio.addEventListener("error", (e) => this.onError(e));
-        this.audio.addEventListener("seeked", () => this._updatePositionState());
-        this.audio.addEventListener("ratechange", () => this._updatePositionState());
-        this.audio.addEventListener("timeupdate", () => {
-          if (this.isPlaying && !this._seekReload && Date.now() - this._frameAt > 500) this.updateProgress();
+        const audio = this.audio;
+        audio.addEventListener("seeked", () => {
+          this._updatePositionState();
+          this._fire("seek", { currentTime: audio.currentTime, duration: this.getSeekDuration() });
+        });
+        audio.addEventListener("ratechange", () => {
+          this._updatePositionState();
+          this._fire("ratechange", { playbackRate: audio.playbackRate });
+        });
+        audio.addEventListener("volumechange", () => this._fire("volumechange", { volume: audio.volume, muted: audio.muted }));
+        audio.addEventListener("timeupdate", () => {
+          if (this._seekReload) return;
+          if (this.isPlaying && Date.now() - this._frameAt > 500) this.updateProgress();
+          this.dispatchEvent(new Event("timeupdate"));
         });
       }
       this.canvas.addEventListener("click", (e) => this.handleCanvasClick(e));
@@ -2179,6 +2210,7 @@
         }
         this.drawWaveform();
         this.renderMarkers();
+        this._fire("load");
         if (this.options.onLoad) {
           this.options.onLoad(this);
         }
@@ -2706,7 +2738,7 @@
       this.setPlayButtonState(true);
       this.startSmoothUpdate();
       this._updateMediaSession("playing");
-      this._emit("waveformplayer:play", { player: this, url: this.options.url });
+      this._fire("play");
       if (this.options.onPlay) {
         this.options.onPlay(this);
       }
@@ -2725,7 +2757,7 @@
       this.setPlayButtonState(false);
       this.stopSmoothUpdate();
       this._updateMediaSession("paused");
-      this._emit("waveformplayer:pause", { player: this, url: this.options.url });
+      this._fire("pause");
       if (this.options.onPause) {
         this.options.onPause(this);
       }
@@ -2747,7 +2779,7 @@
       if (this.currentTimeEl) {
         this.currentTimeEl.textContent = "0:00";
       }
-      this._emit("waveformplayer:ended", { player: this, url: this.options.url, currentTime: duration, duration });
+      this._fire("ended", { currentTime: duration, duration });
       if (this.isPlaying) this.onPause();
       if (this.options.onEnd) {
         this.options.onEnd(this);
@@ -2766,6 +2798,7 @@
       console.error("[WaveformPlayer] Audio error:", error);
       this._setError(true);
       this.setLoading(false);
+      this._fire("error", { error });
       if (this.options.onError) {
         this.options.onError(error, this);
       }
@@ -2831,7 +2864,7 @@
         duration: this.audio.duration,
         progress: this.progress,
         url: this.options.url
-      });
+      }, false, true);
       if (this.options.onTimeUpdate) {
         this.options.onTimeUpdate(this.audio.currentTime, this.audio.duration, this);
       }
@@ -3045,11 +3078,11 @@
       this.setPlayButtonState(this.isPlaying);
       if (this.isPlaying && !wasPlaying) {
         this.startSmoothUpdate?.();
-        this._emit("waveformplayer:play", { player: this, url: this.options.url });
+        this._fire("play");
         if (this.options.onPlay) this.options.onPlay(this);
       } else if (!this.isPlaying && wasPlaying) {
         this.stopSmoothUpdate?.();
-        this._emit("waveformplayer:pause", { player: this, url: this.options.url });
+        this._fire("pause");
         if (this.options.onPause) this.options.onPause(this);
       }
     }
@@ -3082,12 +3115,12 @@
       }
       this.drawWaveform?.();
       this.updateActiveMarker();
-      this._emit("waveformplayer:timeupdate", { player: this, currentTime, duration, progress: this.progress, url: this.options.url });
+      this._fire("timeupdate", { currentTime, duration, progress: this.progress });
       if (this.options.onTimeUpdate) this.options.onTimeUpdate(currentTime, duration, this);
       if (this.progress >= 1) {
         if (!this._extEnded) {
           this._extEnded = true;
-          this._emit("waveformplayer:ended", { player: this, url: this.options.url, currentTime: duration, duration });
+          this._fire("ended", { currentTime: duration, duration });
           if (this.options.onEnd) this.options.onEnd(this);
         }
       } else {
