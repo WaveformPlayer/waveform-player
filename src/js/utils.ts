@@ -22,9 +22,9 @@ export const DEFAULT_SAMPLES = 1800;
  * Deliberately *not* added to the public `WaveformPlayer.utils` bag: it's an
  * internal guard, not part of the consumer contract.
  *
- * @returns {boolean}
+ * @returns 
  */
-export function isBrowser() {
+export function isBrowser(): boolean {
     return typeof window !== 'undefined' && typeof document !== 'undefined';
 }
 
@@ -33,10 +33,10 @@ export function isBrowser() {
  * argument spread throws `RangeError: Maximum call stack size exceeded` for
  * very large arrays (~1e5+ entries). Returns `-Infinity` for an empty array,
  * matching `Math.max()`.
- * @param {number[]} values - Numbers to scan.
- * @returns {number} The maximum value (`-Infinity` if empty).
+ * @param values - Numbers to scan.
+ * @returns The maximum value (`-Infinity` if empty).
  */
-export function maxOf(values) {
+export function maxOf(values: number[]): number {
     let max = -Infinity;
     for (let i = 0; i < values.length; i++) {
         if (values[i] > max) max = values[i];
@@ -47,10 +47,10 @@ export function maxOf(values) {
 /**
  * Escape a string for safe interpolation into HTML, preventing injection when
  * building markup with template strings. `null`/`undefined` become `''`.
- * @param {*} str - Value to escape.
- * @returns {string} HTML-escaped string.
+ * @param str - Value to escape.
+ * @returns HTML-escaped string.
  */
-export function escapeHtml(str) {
+export function escapeHtml(str: any): string {
     return String(str == null ? '' : str)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -68,10 +68,10 @@ export function escapeHtml(str) {
  * `data-*` attributes, so an unescaped quote would otherwise close the `style`
  * attribute and let arbitrary markup in.
  *
- * @param {number|string} value - Length option value.
- * @returns {string} Escaped CSS length, e.g. `36px` or `4rem`.
+ * @param value - Length option value.
+ * @returns Escaped CSS length, e.g. `36px` or `4rem`.
  */
-export function formatCssLength(value) {
+export function formatCssLength(value: number | string): string {
     return escapeHtml(typeof value === 'number' ? `${value}px` : value);
 }
 
@@ -79,10 +79,10 @@ export function formatCssLength(value) {
  * Whether a URL is safe to navigate to (assign to `location.href`): allows only
  * `http`/`https` and relative URLs, rejecting `javascript:`, `data:`, `blob:`,
  * `vbscript:` and other script-bearing schemes.
- * @param {string} url - Candidate URL.
- * @returns {boolean} True if the URL uses a safe scheme.
+ * @param url - Candidate URL.
+ * @returns True if the URL uses a safe scheme.
  */
-export function isSafeHref(url) {
+export function isSafeHref(url: string): boolean {
     if (typeof url !== 'string' || url === '') return false;
     try {
         // Resolve relative URLs against a dummy http base; only the scheme matters.
@@ -95,12 +95,12 @@ export function isSafeHref(url) {
 
 /**
  * Clamp a number to an inclusive range.
- * @param {number} value - Value to constrain.
- * @param {number} [min=0] - Lower bound.
- * @param {number} [max=1] - Upper bound.
- * @returns {number} `value` constrained to `[min, max]`.
+ * @param value - Value to constrain.
+ * @param min - Lower bound.
+ * @param max - Upper bound.
+ * @returns `value` constrained to `[min, max]`.
  */
-export function clamp(value, min = 0, max = 1) {
+export function clamp(value: number, min: number = 0, max: number = 1): number {
     return Math.max(min, Math.min(value, max));
 }
 
@@ -118,15 +118,15 @@ export function clamp(value, min = 0, max = 1) {
  * (`'64px'` → `fallback`); the `data-*` layer has already run `parseInt`/
  * `parseFloat` by the time values arrive here.
  *
- * @param {*} value - Candidate value.
- * @param {*} [fallback=null] - Returned when `value` isn't a finite number.
- * @param {Object} [opts={}] - Bounds.
- * @param {number} [opts.min=-Infinity] - Lower bound (clamped, not rejected).
- * @param {number} [opts.max=Infinity] - Upper bound (clamped, not rejected).
- * @param {boolean} [opts.integer=false] - Round the result to a whole number.
- * @returns {number|*} The finite, clamped number, or `fallback`.
+ * @param value - Candidate value.
+ * @param fallback - Returned when `value` isn't a finite number.
+ * @param opts - Bounds.
+ * @param [opts.min=-Infinity] - Lower bound (clamped, not rejected).
+ * @param [opts.max=Infinity] - Upper bound (clamped, not rejected).
+ * @param [opts.integer=false] - Round the result to a whole number.
+ * @returns The finite, clamped number, or `fallback`.
  */
-export function toFiniteNumber(value, fallback = null, opts = {}) {
+export function toFiniteNumber(value: any, fallback: any = null, opts: Record<string, any> = {}): number | any {
     const {min = -Infinity, max = Infinity, integer = false} = opts;
     const n = typeof value === 'number'
         ? value
@@ -147,11 +147,11 @@ export function toFiniteNumber(value, fallback = null, opts = {}) {
  * *syntax*, so well-formed non-array JSON sails through and detonates at the
  * first `.map()`/`.forEach()` call site.
  *
- * @param {*} value - Candidate value.
- * @param {*} [fallback=null] - Returned when `value` isn't (or doesn't parse to) an array.
- * @returns {Array|*} The array, or `fallback`.
+ * @param value - Candidate value.
+ * @param fallback - Returned when `value` isn't (or doesn't parse to) an array.
+ * @returns The array, or `fallback`.
  */
-export function toArray(value, fallback = null) {
+export function toArray(value: any, fallback: any = null): any[] | any {
     if (Array.isArray(value)) return value;
 
     if (typeof value === 'string' && value.trim().startsWith('[')) {
@@ -174,14 +174,14 @@ export function toArray(value, fallback = null) {
  * mistyped entry can't quietly masquerade as a supported one. An empty result
  * returns `fallback`.
  *
- * @param {*} value - Candidate value.
- * @param {Object} [opts={}] - Bounds and fallback.
- * @param {number} [opts.min=-Infinity] - Lowest acceptable member.
- * @param {number} [opts.max=Infinity] - Highest acceptable member.
- * @param {*} [opts.fallback=null] - Returned when nothing usable survives.
- * @returns {number[]|*} Numbers within range, or `fallback`.
+ * @param value - Candidate value.
+ * @param opts - Bounds and fallback.
+ * @param [opts.min=-Infinity] - Lowest acceptable member.
+ * @param [opts.max=Infinity] - Highest acceptable member.
+ * @param [opts.fallback=null] - Returned when nothing usable survives.
+ * @returns Numbers within range, or `fallback`.
  */
-export function toNumberArray(value, opts = {}) {
+export function toNumberArray(value: any, opts: Record<string, any> = {}): number[] | any {
     const {min = -Infinity, max = Infinity, fallback = null} = opts;
 
     let list = toArray(value);
@@ -191,8 +191,8 @@ export function toNumberArray(value, opts = {}) {
     if (!list) return fallback;
 
     const numbers = list
-        .map(v => toFiniteNumber(v))
-        .filter(n => n !== null && n >= min && n <= max);
+        .map((v: unknown) => toFiniteNumber(v))
+        .filter((n: number | null) => n !== null && n >= min && n <= max);
 
     return numbers.length ? numbers : fallback;
 }
@@ -203,12 +203,12 @@ export function toNumberArray(value, opts = {}) {
  * an unrecognised value resolves to the documented default instead of reaching
  * a class name, a DOM property, or a lookup that silently misses.
  *
- * @param {*} value - Candidate value.
- * @param {Array} allowed - Permitted values.
- * @param {*} [fallback=null] - Returned when `value` isn't permitted.
- * @returns {*} `value` if allowed, else `fallback`.
+ * @param value - Candidate value.
+ * @param allowed - Permitted values.
+ * @param fallback - Returned when `value` isn't permitted.
+ * @returns `value` if allowed, else `fallback`.
  */
-export function toEnum(value, allowed, fallback = null) {
+export function toEnum(value: any, allowed: any[], fallback: any = null): any {
     return allowed.includes(value) ? value : fallback;
 }
 
@@ -218,10 +218,10 @@ export function toEnum(value, allowed, fallback = null) {
  * from attribute-shaped sources (a `data-*` value, or a framework wrapper that
  * stringifies props before forwarding them).
  *
- * @param {*} value - Candidate value.
- * @returns {boolean} The coerced boolean.
+ * @param value - Candidate value.
+ * @returns The coerced boolean.
  */
-export function toBool(value) {
+export function toBool(value: any): boolean {
     if (typeof value === 'string') {
         const v = value.trim().toLowerCase();
         return v !== '' && v !== 'false' && v !== '0';
@@ -233,10 +233,10 @@ export function toBool(value) {
  * Read a boolean `data-*` flag. Returns `undefined` when the attribute is
  * absent (preserving the sparse-options contract) and otherwise compares the
  * raw value against the literal string `'true'`.
- * @param {string|undefined} value - Raw `dataset` value.
- * @returns {boolean|undefined} `true`/`false` when present, else `undefined`.
+ * @param value - Raw `dataset` value.
+ * @returns `true`/`false` when present, else `undefined`.
  */
-export function parseBoolAttr(value) {
+export function parseBoolAttr(value: string | undefined): boolean | undefined {
     return value === undefined ? undefined : value === 'true';
 }
 
@@ -244,10 +244,10 @@ export function parseBoolAttr(value) {
  * A colour data-attribute may be a CSS colour string OR a JSON array of
  * gradient stops (e.g. '["#fafafa","#71717a"]'). Parse the array form;
  * otherwise pass the string straight through.
- * @param {string} value
- * @returns {string|string[]}
+ * @param value
+ * @returns 
  */
-function parseColorValue(value) {
+function parseColorValue(value: string): string | string[] {
     if (typeof value === 'string' && value.trim().startsWith('[')) {
         try { return JSON.parse(value); } catch (e) { /* fall through to string */ }
     }
@@ -276,29 +276,29 @@ function parseColorValue(value) {
  * Colour attributes that accept gradients (`waveformColor`, `progressColor`)
  * are passed through {@link parseColorValue} so a JSON stop array is expanded.
  *
- * @param {HTMLElement} element - Host element whose `dataset` is inspected.
- * @returns {Object} Sparse options object containing only the attributes found.
+ * @param element - Host element whose `dataset` is inspected.
+ * @returns Sparse options object containing only the attributes found.
  */
-export function parseDataAttributes(element) {
-    const options = {};
+export function parseDataAttributes(element: HTMLElement): Record<string, any> {
+    const options: Record<string, any> = {};
 
     // Set a boolean option only when its `data-*` attribute is present, so the
     // returned object stays sparse and never overrides a default with a value
     // the author didn't set. (`dataKey` differs from `optKey` only for showBPM.)
-    const setBool = (optKey, dataKey = optKey) => {
+    const setBool = (optKey: string, dataKey: string = optKey) => {
         const v = parseBoolAttr(element.dataset[dataKey]);
         if (v !== undefined) options[optKey] = v;
     };
 
     // Read a present (non-empty) numeric attribute as an int (or float).
-    const setNum = (optKey, dataKey = optKey, float = false) => {
+    const setNum = (optKey: string, dataKey: string = optKey, float: boolean = false) => {
         const raw = element.dataset[dataKey];
         if (raw) options[optKey] = float ? parseFloat(raw) : parseInt(raw, 10);
     };
 
     // Read a CSS length attribute: a bare number is px (data-button-size="64"),
     // a unit string (e.g. "4rem") is kept verbatim for the stylesheet to resolve.
-    const setLength = (optKey, dataKey = optKey) => {
+    const setLength = (optKey: string, dataKey: string = optKey) => {
         const raw = element.dataset[dataKey];
         if (!raw) return;
         options[optKey] = /^\d+(\.\d+)?$/.test(raw.trim()) ? parseFloat(raw) : raw;
@@ -308,7 +308,7 @@ export function parseDataAttributes(element) {
     // isn't an array. Checking the SHAPE (not just that JSON.parse succeeded)
     // is what stops well-formed non-array JSON like `2` or `{"a":1}` reaching a
     // consumer that will call .map()/.forEach() on it.
-    const setJsonArray = (optKey, dataKey = optKey) => {
+    const setJsonArray = (optKey: string, dataKey: string = optKey) => {
         const raw = element.dataset[dataKey];
         if (!raw) return;
         const parsed = toArray(raw);
@@ -426,11 +426,11 @@ export function parseDataAttributes(element) {
  * a localized template resolves the same way `sprintf` would — including
  * templates that reorder the arguments for a given language. Placeholders with
  * no matching argument are left intact.
- * @param {string} template - Value-text template, e.g. `'%1$s of %2$s'`.
- * @param {...string} args  - Replacement values, in order (current, duration).
- * @returns {string} The interpolated value text.
+ * @param template - Value-text template, e.g. `'%1$s of %2$s'`.
+ * @param args  - Replacement values, in order (current, duration).
+ * @returns The interpolated value text.
  */
-export function formatSeekValueText(template, ...args) {
+export function formatSeekValueText(template: string, ...args: string[]): string {
     let sequentialIndex = 0;
     return template.replace(/%(?:(\d+)\$)?s/g, (match, position) => {
         const index = position ? Number(position) - 1 : sequentialIndex++;
@@ -448,10 +448,10 @@ export function formatSeekValueText(template, ...args) {
  * `Infinity` matters here, and an `isNaN` check does not catch it: a streamed or
  * unseekable source reports `audio.duration === Infinity`, and `Infinity % 3600`
  * is `NaN`, so the old guard rendered a literal `'Infinity:NaN:NaN'` into the UI.
- * @param {number} seconds - Time in seconds.
- * @returns {string} Formatted time, e.g. `'3:07'` or `'1:02:09'`.
+ * @param seconds - Time in seconds.
+ * @returns Formatted time, e.g. `'3:07'` or `'1:02:09'`.
  */
-export function formatTime(seconds) {
+export function formatTime(seconds: number): string {
     const total = Number(seconds);
     if (!total || !Number.isFinite(total) || total < 0) return '0:00';
 
@@ -480,10 +480,10 @@ let idCounter = 0;
  * Uses a DJB2 hash of the FULL url (not a 10-char prefix) plus a process
  * counter, so same-host tracks don't collide in the instances map and
  * non-Latin1 / Unicode URLs don't throw (the old btoa() approach did both).
- * @param {string} url - Audio URL
- * @returns {string} Unique element-id-safe string
+ * @param url - Audio URL
+ * @returns Unique element-id-safe string
  */
-export function generateId(url) {
+export function generateId(url: string): string {
     const str = url || 'audio';
     let hash = 5381;
     for (let i = 0; i < str.length; i++) {
@@ -498,12 +498,12 @@ export function generateId(url) {
  * Takes the last path segment, drops the extension, replaces `-`/`_`
  * separators with spaces, and title-cases the first letter of each word.
  * Returns `'Audio'` for an empty or missing URL.
- * @param {string} url - Audio URL.
- * @returns {string} Extracted, prettified title.
+ * @param url - Audio URL.
+ * @returns Extracted, prettified title.
  * @example
  * extractTitleFromUrl('https://cdn.example.com/my-cool_track.mp3'); // 'My Cool Track'
  */
-export function extractTitleFromUrl(url) {
+export function extractTitleFromUrl(url: string): string {
     if (!url) return 'Audio';
 
     const parts = url.split('/');
@@ -525,11 +525,11 @@ export function extractTitleFromUrl(url) {
  * `transparent` keyword, a wide-gamut `color(srgb …)`, an empty string — is
  * reported as `null` so callers treat it as *unknown* rather than as a colour.
  *
- * @param {string} color - CSS colour string.
- * @returns {{r: number, g: number, b: number, a: number}|null} Channels 0–255
+ * @param color - CSS colour string.
+ * @returns Channels 0–255
  *   with alpha 0–1, or `null` when the string isn't an rgb()/rgba() colour.
  */
-export function parseColor(color) {
+export function parseColor(color: string): {r: number, g: number, b: number, a: number} | null {
     if (typeof color !== 'string') return null;
 
     const m = color.match(/rgba?\(\s*([\d.]+)\s*[,\s]\s*([\d.]+)\s*[,\s]\s*([\d.]+)\s*(?:[,/]\s*([\d.]+)(%?))?/i);
@@ -554,11 +554,11 @@ export function parseColor(color) {
  * unpainted (i.e. white) pages as dark — see issue #21. Transparent means "this
  * tells you nothing", which is a different answer from "this is black".
  *
- * @param {string} color - CSS colour string, e.g. `"rgb(34, 34, 34)"`.
- * @returns {number|null} Brightness 0–255, or `null` if it can't be parsed or
+ * @param color - CSS colour string, e.g. `"rgb(34, 34, 34)"`.
+ * @returns Brightness 0–255, or `null` if it can't be parsed or
  *   is fully transparent.
  */
-export function perceivedBrightness(color) {
+export function perceivedBrightness(color: string): number | null {
     const c = parseColor(color);
     if (!c || c.a <= 0) return null;
     return (c.r * 299 + c.g * 587 + c.b * 114) / 1000;
@@ -570,11 +570,11 @@ export function perceivedBrightness(color) {
  * Keys whose value is `null` or `undefined` are skipped, so a later source can
  * leave an earlier value untouched by passing a nullish entry rather than
  * clobbering it. The inputs are never mutated.
- * @param {...Object} sources - Option objects merged left-to-right.
- * @returns {Object} A fresh object containing the merged, defined keys.
+ * @param sources - Option objects merged left-to-right.
+ * @returns A fresh object containing the merged, defined keys.
  */
-export function mergeOptions(...sources) {
-    const result = {};
+export function mergeOptions(...sources: Record<string, any>[]): Record<string, any> {
+    const result: Record<string, any> = {};
 
     for (const source of sources) {
         for (const key in source) {
@@ -593,12 +593,12 @@ export function mergeOptions(...sources) {
  * Each invocation resets the pending timer, so rapid bursts collapse into a
  * single trailing-edge call that receives the most recent arguments. The
  * wrapper itself returns nothing.
- * @param {Function} func - Function to debounce.
- * @param {number} wait - Idle period in milliseconds before `func` fires.
- * @returns {Function} Debounced wrapper forwarding its arguments to `func`.
+ * @param func - Function to debounce.
+ * @param wait - Idle period in milliseconds before `func` fires.
+ * @returns Debounced wrapper forwarding its arguments to `func`.
  */
-export function debounce(func, wait) {
-    let timeout;
+export function debounce(func: (...args: any[]) => any, wait: number): (...args: any[]) => any {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
 
     return function executedFunction(...args) {
         const later = () => {
@@ -620,11 +620,11 @@ export function debounce(func, wait) {
  * When downsampling it splits the source into evenly sized buckets and keeps
  * the peak (maximum) of each so transients survive the reduction; an empty
  * bucket falls back to its nearest-neighbour sample.
- * @param {number[]} data - Original amplitude samples.
- * @param {number} targetLength - Desired number of output bars.
- * @returns {number[]} Resampled amplitude array of length `targetLength`.
+ * @param data - Original amplitude samples.
+ * @param targetLength - Desired number of output bars.
+ * @returns Resampled amplitude array of length `targetLength`.
  */
-export function resampleData(data, targetLength) {
+export function resampleData(data: number[], targetLength: number): number[] {
     if (data.length === targetLength) return data;
     if (data.length === 0 || targetLength === 0) return [];
 
@@ -686,11 +686,11 @@ export function resampleData(data, targetLength) {
  * Whether a time falls inside a `TimeRanges` (e.g. `audio.seekable`), with a
  * little slack for float rounding at the edges.
  *
- * @param {Pick<TimeRanges, 'length'|'start'|'end'>} ranges - The ranges.
- * @param {number} time - Seconds.
- * @returns {boolean}
+ * @param ranges - The ranges.
+ * @param time - Seconds.
+ * @returns 
  */
-export function inTimeRanges(ranges, time) {
+export function inTimeRanges(ranges: Pick<TimeRanges, 'length'|'start'|'end'>, time: number): boolean {
     for (let i = 0; i < ranges.length; i++) {
         if (ranges.start(i) - 0.05 <= time && time <= ranges.end(i) + 0.05) return true;
     }
@@ -701,11 +701,11 @@ export function inTimeRanges(ranges, time) {
  * Whether one range of a `TimeRanges` (e.g. `audio.buffered`) spans the whole
  * track: the file is fully downloaded, and so in the browser's HTTP cache.
  *
- * @param {Pick<TimeRanges, 'length'|'start'|'end'>} ranges - The ranges.
- * @param {number} duration - Track length in seconds.
- * @returns {boolean}
+ * @param ranges - The ranges.
+ * @param duration - Track length in seconds.
+ * @returns 
  */
-export function coversDuration(ranges, duration) {
+export function coversDuration(ranges: Pick<TimeRanges, 'length'|'start'|'end'>, duration: number): boolean {
     if (!Number.isFinite(duration) || duration <= 0) return false;
     for (let i = 0; i < ranges.length; i++) {
         if (ranges.start(i) <= 0.05 && ranges.end(i) >= duration - 0.1) return true;

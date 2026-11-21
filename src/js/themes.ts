@@ -25,11 +25,11 @@ const LIGHT_THRESHOLD = 128;
  * Does `<html>` or `<body>` explicitly signal the given colour scheme via a
  * known class name (`dark`, `dark-mode`, `theme-dark`) or theme attribute
  * (`data-theme`, and `data-color-scheme` on the root)?
- * @param {'dark'|'light'} scheme - Scheme to look for.
- * @returns {boolean} True if the page explicitly hints at `scheme`.
+ * @param scheme - Scheme to look for.
+ * @returns True if the page explicitly hints at `scheme`.
  * @private
  */
-function hasThemeHint(scheme) {
+function hasThemeHint(scheme: 'dark' | 'light'): boolean {
     const root = document.documentElement;
     const body = document.body;
     return (
@@ -64,20 +64,20 @@ function hasThemeHint(scheme) {
  * only that way contributes no colour here and is classified by
  * {@link detectCanvasScheme} instead.
  *
- * @param {Element} el - Element to start from (the player's container).
- * @returns {{sum: number, alpha: number}} Premultiplied brightness, and how much
+ * @param el - Element to start from (the player's container).
+ * @returns Premultiplied brightness, and how much
  *   of the stack is opaque (0–1).
  * @private
  */
-function collectBackdrop(el) {
+function collectBackdrop(el: Element): {sum: number, alpha: number} {
     let sum = 0;
     let alpha = 0;
 
     // At a shadow root parentElement is null; continue from the shadow host,
     // or a player inside a web component / extension UI stops reading the
     // page at its own boundary and misses the card it sits on.
-    const up = (node) => node.parentElement || node.getRootNode?.().host || null;
-    for (let node = el; node && node.nodeType === 1 && alpha < 0.995; node = up(node)) {
+    const up = (node: Element): Element | null => node.parentElement || (node as any).getRootNode?.().host || null;
+    for (let node: Element | null = el; node && node.nodeType === 1 && alpha < 0.995; node = up(node)) {
         const c = parseColor(getComputedStyle(node).backgroundColor);
         if (!c || c.a <= 0) continue;
 
@@ -113,10 +113,10 @@ function collectBackdrop(el) {
  * base background. The media query survives purely as a last resort for
  * environments with no resolvable text colour.
  *
- * @returns {'dark'|'light'} Scheme of the canvas behind the page.
+ * @returns Scheme of the canvas behind the page.
  * @private
  */
-function detectCanvasScheme() {
+function detectCanvasScheme(): 'dark' | 'light' {
     // Light text ⇒ the page is painted for a dark canvas, and vice versa.
     const text = perceivedBrightness(getComputedStyle(document.body).color);
     if (text !== null) return text > LIGHT_THRESHOLD ? 'dark' : 'light';
@@ -144,11 +144,11 @@ function detectCanvasScheme() {
  *   3. The canvas scheme alone, for the knife-edge case where the composite
  *      lands exactly on the threshold.
  *
- * @param {Element} [el] - The player's container, so a player inside a themed
+ * @param el - The player's container, so a player inside a themed
  *   card picks up that card. Defaults to `<body>`.
- * @returns {string} The detected scheme, either `'dark'` or `'light'`.
+ * @returns The detected scheme, either `'dark'` or `'light'`.
  */
-export function detectColorScheme(el) {
+export function detectColorScheme(el?: Element): string {
     // 1. Explicit theme class names / data attributes win.
     if (hasThemeHint('dark')) return 'dark';
     if (hasThemeHint('light')) return 'light';
@@ -188,7 +188,7 @@ export function detectColorScheme(el) {
  * @property {Object<string, string>} dark  Light-on-dark token set.
  * @property {Object<string, string>} light Dark-on-light token set.
  */
-export const COLOR_PRESETS = {
+export const COLOR_PRESETS: Record<string, { waveformColor: string; progressColor: string }> = {
     dark: {
         waveformColor: 'rgba(255, 255, 255, 0.3)',
         progressColor: 'rgba(255, 255, 255, 0.9)'
@@ -206,14 +206,14 @@ export const COLOR_PRESETS = {
  * (null, undefined, or an unrecognised name) the scheme is auto-detected via
  * {@link detectColorScheme} and the corresponding preset is returned.
  *
- * @param {string|null} presetName - Preset name (`'dark'` or `'light'`), or
+ * @param presetName - Preset name (`'dark'` or `'light'`), or
  *   null/invalid to trigger auto-detection.
- * @param {Element} [el] - Container passed through to {@link detectColorScheme}
+ * @param el - Container passed through to {@link detectColorScheme}
  *   so detection reads the backdrop behind this player, not just `<body>`.
- * @returns {Object<string, string>} The matching colour token map from
+ * @returns The matching colour token map from
  *   {@link COLOR_PRESETS}.
  */
-export function getColorPreset(presetName, el) {
+export function getColorPreset(presetName: string | null, el?: Element): { waveformColor: string; progressColor: string } {
     // If explicitly set to a valid preset, use it
     if (presetName && COLOR_PRESETS[presetName]) {
         return COLOR_PRESETS[presetName];
@@ -509,11 +509,11 @@ const CALLBACKS = [
  * Warn about an option that was supplied but unusable. Invalid options resolve
  * to their default rather than throwing, so without this they'd fail silently —
  * a `NaN` height renders an invisible player with an empty console.
- * @param {string} key - Option name.
- * @param {*} value - The rejected value.
+ * @param key - Option name.
+ * @param value - The rejected value.
  * @private
  */
-function warnInvalid(key, value) {
+function warnInvalid(key: string, value: any) {
     console.warn(`[WaveformPlayer] Invalid ${key} option, using default:`, value);
 }
 
@@ -527,17 +527,17 @@ function warnInvalid(key, value) {
  * A missing `label` becomes `''` rather than reaching the tooltip and the
  * marker's `aria-label` as the string `"undefined"`.
  *
- * @param {*} value - Candidate marker list.
- * @returns {Array<Object>} Renderable markers (empty when nothing survives).
+ * @param value - Candidate marker list.
+ * @returns Renderable markers (empty when nothing survives).
  */
-export function normalizeMarkers(value) {
+export function normalizeMarkers(value: any): Record<string, any>[] {
     const list = toArray(value);
     if (!list) {
         if (value != null) warnInvalid('markers', value);
         return [];
     }
 
-    return list.reduce((markers, marker) => {
+    return list.reduce((markers: Record<string, any>[], marker: any) => {
         const time = marker && typeof marker === 'object'
             ? toFiniteNumber(marker.time, null, {min: 0})
             : null;
@@ -570,19 +570,19 @@ export function normalizeMarkers(value) {
  * the documented "inherit / auto-detect" state for colours, `bpm`, `buttonSize`
  * and the callbacks.
  *
- * @param {Object} options - Merged options object (mutated).
- * @returns {Object} The same object, normalized.
+ * @param options - Merged options object (mutated).
+ * @returns The same object, normalized.
  */
-export function normalizeOptions(options) {
+export function normalizeOptions(options: Record<string, any>): Record<string, any> {
     // Only normalize what the caller actually supplied — mergeOptions() drops
     // null/undefined sources, so a null here is a default that means "unset".
-    const supplied = (key) => options[key] != null;
+    const supplied = (key: string) => options[key] != null;
 
     // Fall back to the documented default, warning only when a real value was
     // rejected (an unset option is not a mistake).
-    const reject = (key) => {
+    const reject = (key: string) => {
         warnInvalid(key, options[key]);
-        options[key] = DEFAULT_OPTIONS[key];
+        options[key] = DEFAULT_OPTIONS[key as keyof typeof DEFAULT_OPTIONS];
     };
 
     for (const [key, range] of Object.entries(NUMBERS)) {

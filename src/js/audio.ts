@@ -17,14 +17,14 @@ import {clamp, maxOf, DEFAULT_SAMPLES} from './utils.js';
  * array is normalized so the maximum peak becomes 1 (a silent buffer is
  * returned unscaled).
  *
- * @param {AudioBuffer} buffer - Decoded audio buffer to analyse.
- * @param {number} [samples=1800] - Number of peak windows (output array length).
- * @returns {number[]} Array of `samples` normalized peak values in the 0-1 range.
+ * @param buffer - Decoded audio buffer to analyse.
+ * @param samples - Number of peak windows (output array length). Default 1800.
+ * @returns Array of `samples` normalized peak values in the 0-1 range.
  */
-export function extractPeaks(buffer, samples = DEFAULT_SAMPLES) {
+export function extractPeaks(buffer: AudioBuffer, samples: number = DEFAULT_SAMPLES): number[] {
     const sampleSize = buffer.length / samples;
     const channels = buffer.numberOfChannels;
-    const peaks = [];
+    const peaks: number[] = [];
 
     for (let c = 0; c < channels; c++) {
         const chan = buffer.getChannelData(c);
@@ -70,20 +70,24 @@ export function extractPeaks(buffer, samples = DEFAULT_SAMPLES) {
  * hard-cap the number of live contexts). Errors are logged and re-thrown so
  * callers can fall back to a placeholder waveform.
  *
- * @param {string} url - Audio file URL to fetch and decode.
- * @param {number} [samples=1800] - Number of peak windows to extract.
- * @param {boolean} [shouldDetectBPM=false] - Whether to run BPM detection on the decoded buffer.
- * @returns {Promise<{peaks: number[], bpm: (number|null)}>} Resolves with the
- *   normalized peaks and the detected BPM (`null` when detection is disabled or fails).
- * @throws {Error} Re-throws any fetch/decode error after logging it.
+ * @param url - Audio file URL to fetch and decode.
+ * @param samples - Number of peak windows to extract. Default 1800.
+ * @param shouldDetectBPM - Whether to run BPM detection on the decoded buffer.
+ * @returns Resolves with the normalized peaks and the detected BPM (`null` when
+ *   detection is disabled or fails).
+ * @throws Re-throws any fetch/decode error after logging it.
  */
-export async function generateWaveform(url, samples = DEFAULT_SAMPLES, shouldDetectBPM = false) {
+export async function generateWaveform(
+    url: string,
+    samples: number = DEFAULT_SAMPLES,
+    shouldDetectBPM: boolean = false
+): Promise<{ peaks: number[]; bpm: number | null }> {
     // Created lazily so the finally block can always close it — browsers
     // hard-cap live AudioContexts (~6 in Chrome), so leaking one per failed
     // decode would break every subsequent player on the page.
-    let audioContext;
+    let audioContext: AudioContext | undefined;
     try {
-        const AudioCtx = window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
+        const AudioCtx: typeof AudioContext = window.AudioContext || (window as any).webkitAudioContext;
         audioContext = new AudioCtx();
         const response = await fetch(url);
         const arrayBuffer = await response.arrayBuffer();
@@ -94,7 +98,7 @@ export async function generateWaveform(url, samples = DEFAULT_SAMPLES, shouldDet
         // Normalize peaks for consistent visualization
         peaks = normalizePeaks(peaks);
 
-        let bpm = null;
+        let bpm: number | null = null;
         if (shouldDetectBPM) {
             bpm = detectBPM(audioBuffer); // synchronous — returns number|null
         }
@@ -115,11 +119,11 @@ export async function generateWaveform(url, samples = DEFAULT_SAMPLES, shouldDet
  * variation across the array, clamped to the 0.1-1 range so the result always
  * looks like a plausible waveform rather than pure noise.
  *
- * @param {number} [samples=1800] - Number of bars (output array length).
- * @returns {number[]} Array of `samples` pseudo-random peak values in the 0.1-1 range.
+ * @param samples - Number of bars (output array length). Default 1800.
+ * @returns Array of `samples` pseudo-random peak values in the 0.1-1 range.
  */
-export function generatePlaceholderWaveform(samples = DEFAULT_SAMPLES) {
-    const data = [];
+export function generatePlaceholderWaveform(samples: number = DEFAULT_SAMPLES): number[] {
+    const data: number[] = [];
     for (let i = 0; i < samples; i++) {
         const base = Math.random() * 0.5 + 0.3;
         const variation = Math.sin(i / samples * Math.PI * 4) * 0.2;
@@ -136,12 +140,11 @@ export function generatePlaceholderWaveform(samples = DEFAULT_SAMPLES) {
  * arrays (max 0) and already-loud arrays (max above `targetMax`) are returned
  * untouched, so the function never amplifies clipping or divides by zero.
  *
- * @param {number[]} peaks - Peak values, typically in the 0-1 range.
- * @param {number} [targetMax=0.95] - Desired maximum peak after scaling.
- * @returns {number[]} The normalized peak array (the original array when no scaling is applied).
- * @private
+ * @param peaks - Peak values, typically in the 0-1 range.
+ * @param targetMax - Desired maximum peak after scaling. Default 0.95.
+ * @returns The normalized peak array (the original array when no scaling is applied).
  */
-function normalizePeaks(peaks, targetMax = 0.95) {
+function normalizePeaks(peaks: number[], targetMax: number = 0.95): number[] {
     const maxPeak = maxOf(peaks);
 
     // Don't normalize if already loud enough or silent

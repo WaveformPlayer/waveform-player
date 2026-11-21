@@ -11,12 +11,12 @@ import {resampleData, clamp} from './utils.js';
  * `Infinity`, and resampleData() would loop until the tab ran out of memory.
  * normalizeOptions() keeps `barWidth` above zero, but options stay publicly
  * mutable, so the drawers guard the division themselves.
- * @param {HTMLCanvasElement} canvas - Canvas element (device-pixel width).
- * @param {number} pitch - Bar width plus spacing, in device pixels.
- * @returns {number} Bar count, 0 when the pitch is unusable.
+ * @param canvas - Canvas element (device-pixel width).
+ * @param pitch - Bar width plus spacing, in device pixels.
+ * @returns Bar count, 0 when the pitch is unusable.
  * @private
  */
-function fitBars(canvas, pitch) {
+function fitBars(canvas: HTMLCanvasElement, pitch: number): number {
     return pitch > 0 ? Math.floor(canvas.width / pitch) : 0;
 }
 
@@ -31,13 +31,13 @@ function fitBars(canvas, pitch) {
  *   - `'horizontal'` left -> right across the whole waveform (a hue sweep).
  *   - `'diagonal'`   top-left -> bottom-right.
  * @private
- * @param {CanvasRenderingContext2D} ctx - Canvas context used to build the gradient.
- * @param {string|string[]} value - A CSS colour string, or an array of colour stops.
- * @param {HTMLCanvasElement} canvas - Canvas (provides the device-pixel span).
- * @param {Object} [options] - Drawing options; reads `waveformGradient`.
- * @returns {string|CanvasGradient} The original string, or a linear gradient.
+ * @param ctx - Canvas context used to build the gradient.
+ * @param value - A CSS colour string, or an array of colour stops.
+ * @param canvas - Canvas (provides the device-pixel span).
+ * @param options - Drawing options; reads `waveformGradient`.
+ * @returns The original string, or a linear gradient.
  */
-function makeFill(ctx, value, canvas, options) {
+function makeFill(ctx: CanvasRenderingContext2D, value: string | string[], canvas: HTMLCanvasElement, options?: Record<string, any>): string | CanvasGradient {
     if (!Array.isArray(value)) return value;
     if (value.length < 2) return value[0];
     const w = canvas.width;
@@ -62,19 +62,19 @@ function makeFill(ctx, value, canvas, options) {
  * bars, no error. Radii are clamped to half the rect's width/height so a
  * large `barRadius` never overflows a thin or short bar.
  * @private
- * @param {CanvasRenderingContext2D} ctx - Canvas context (current fillStyle is used).
- * @param {number} x - Left edge of the bar in device pixels.
- * @param {number} y - Top edge of the bar in device pixels.
- * @param {number} w - Bar width in device pixels.
- * @param {number} h - Bar height in device pixels (may be negative for upward fills).
- * @param {number|number[]} radii - Corner radius (number, or [tl, tr, br, bl]).
- * @returns {void}
+ * @param ctx - Canvas context (current fillStyle is used).
+ * @param x - Left edge of the bar in device pixels.
+ * @param y - Top edge of the bar in device pixels.
+ * @param w - Bar width in device pixels.
+ * @param h - Bar height in device pixels (may be negative for upward fills).
+ * @param radii - Corner radius (number, or [tl, tr, br, bl]).
+ * @returns 
  */
-function fillBar(ctx, x, y, w, h, radii) {
+function fillBar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radii: number | number[]): void {
     const any = Array.isArray(radii) ? radii.some(r => r > 0) : radii > 0;
     if (any && typeof ctx.roundRect === 'function') {
         const max = Math.min(w / 2, Math.abs(h) / 2);
-        const clampR = (r) => clamp(r, 0, max);
+        const clampR = (r: number) => clamp(r, 0, max);
         ctx.beginPath();
         ctx.roundRect(x, y, w, h, Array.isArray(radii) ? radii.map(clampR) : clampR(radii));
         ctx.fill();
@@ -86,11 +86,11 @@ function fillBar(ctx, x, y, w, h, radii) {
 /**
  * Scale the configured `barRadius` into device pixels (scalar).
  * @private
- * @param {Object} options - Drawing options (`barRadius` in CSS pixels, defaults to 0).
- * @param {number} dpr - Device pixel ratio multiplier.
- * @returns {number} The bar corner radius in device pixels.
+ * @param options - Drawing options (`barRadius` in CSS pixels, defaults to 0).
+ * @param dpr - Device pixel ratio multiplier.
+ * @returns The bar corner radius in device pixels.
  */
-function barRadiusPx(options, dpr) {
+function barRadiusPx(options: Record<string, any>, dpr: number): number {
     return (options.barRadius || 0) * dpr;
 }
 
@@ -98,11 +98,11 @@ function barRadiusPx(options, dpr) {
  * Top-rounded corner radii for bottom-anchored bars: [tl, tr, br, bl].
  * Only the top two corners are rounded so bars sit flush on the baseline.
  * @private
- * @param {Object} options - Drawing options (supplies `barRadius`).
- * @param {number} dpr - Device pixel ratio multiplier.
- * @returns {number[]} Corner radii in device pixels as [tl, tr, br, bl].
+ * @param options - Drawing options (supplies `barRadius`).
+ * @param dpr - Device pixel ratio multiplier.
+ * @returns Corner radii in device pixels as [tl, tr, br, bl].
  */
-function barRadii(options, dpr) {
+function barRadii(options: Record<string, any>, dpr: number): number[] {
     const r = barRadiusPx(options, dpr);
     return [r, r, 0, 0];
 }
@@ -111,14 +111,14 @@ function barRadii(options, dpr) {
  * Trace a horizontal rounded-capsule (stadium) path from `startX` to `endX`,
  * ready to fill. The end caps are semicircles of radius `barHeight / 2`.
  * @private
- * @param {CanvasRenderingContext2D} ctx - Canvas context.
- * @param {number} startX - Left edge x (also the left cap centre).
- * @param {number} endX - Right edge x.
- * @param {number} centerY - Vertical centre of the capsule.
- * @param {number} barHeight - Capsule thickness in pixels.
- * @returns {void}
+ * @param ctx - Canvas context.
+ * @param startX - Left edge x (also the left cap centre).
+ * @param endX - Right edge x.
+ * @param centerY - Vertical centre of the capsule.
+ * @param barHeight - Capsule thickness in pixels.
+ * @returns 
  */
-function capsulePath(ctx, startX, endX, centerY, barHeight) {
+function capsulePath(ctx: CanvasRenderingContext2D, startX: number, endX: number, centerY: number, barHeight: number): void {
     const r = barHeight / 2;
     ctx.beginPath();
     ctx.moveTo(startX, centerY - r);
@@ -134,15 +134,15 @@ function capsulePath(ctx, startX, endX, centerY, barHeight) {
  * Peaks are resampled to fit the available bar slots, drawn at 90% of canvas
  * height, then the progress portion is repainted in `progressColor` via a
  * left-anchored clip rect.
- * @param {CanvasRenderingContext2D} ctx - Canvas 2D context to draw into.
- * @param {HTMLCanvasElement} canvas - Canvas element (provides device-pixel dimensions).
- * @param {number[]} peaks - Normalised waveform peak values (0-1).
- * @param {number} progress - Playback progress (0-1) that drives the colour overlay.
- * @param {Object} options - Drawing options: `barWidth`, `barSpacing`, `barRadius`,
+ * @param ctx - Canvas 2D context to draw into.
+ * @param canvas - Canvas element (provides device-pixel dimensions).
+ * @param peaks - Normalised waveform peak values (0-1).
+ * @param progress - Playback progress (0-1) that drives the colour overlay.
+ * @param options - Drawing options: `barWidth`, `barSpacing`, `barRadius`,
  *   `color`, `progressColor` (colour strings or gradient stop arrays).
- * @returns {void}
+ * @returns 
  */
-export function drawBars(ctx, canvas, peaks, progress, options) {
+export function drawBars(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, peaks: number[], progress: number, options: Record<string, any>): void {
     const dpr = window.devicePixelRatio || 1;
     const barWidth = options.barWidth * dpr;
     const barSpacing = options.barSpacing * dpr;
@@ -195,15 +195,15 @@ export function drawBars(ctx, canvas, peaks, progress, options) {
  * Each peak is drawn twice (45% of height up and down) with the upper cap rounded
  * on top and the lower cap rounded on the bottom; the progress portion is then
  * repainted in `progressColor` through a left-anchored clip rect.
- * @param {CanvasRenderingContext2D} ctx - Canvas 2D context to draw into.
- * @param {HTMLCanvasElement} canvas - Canvas element (provides device-pixel dimensions).
- * @param {number[]} peaks - Normalised waveform peak values (0-1).
- * @param {number} progress - Playback progress (0-1) that drives the colour overlay.
- * @param {Object} options - Drawing options: `barWidth`, `barSpacing`, `barRadius`,
+ * @param ctx - Canvas 2D context to draw into.
+ * @param canvas - Canvas element (provides device-pixel dimensions).
+ * @param peaks - Normalised waveform peak values (0-1).
+ * @param progress - Playback progress (0-1) that drives the colour overlay.
+ * @param options - Drawing options: `barWidth`, `barSpacing`, `barRadius`,
  *   `color`, `progressColor`.
- * @returns {void}
+ * @returns 
  */
-export function drawMirror(ctx, canvas, peaks, progress, options) {
+export function drawMirror(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, peaks: number[], progress: number, options: Record<string, any>): void {
     const dpr = window.devicePixelRatio || 1;
     const barWidth = options.barWidth * dpr;
     const barSpacing = options.barSpacing * dpr;
@@ -258,14 +258,14 @@ export function drawMirror(ctx, canvas, peaks, progress, options) {
  * full waveform as a bezier-smoothed curve, then the played portion on top with
  * a coloured shadow glow. Peaks are modulated by a sine term so the line undulates
  * rather than reading as static bars.
- * @param {CanvasRenderingContext2D} ctx - Canvas 2D context to draw into.
- * @param {HTMLCanvasElement} canvas - Canvas element (provides device-pixel dimensions).
- * @param {number[]} peaks - Normalised waveform peak values (0-1).
- * @param {number} progress - Playback progress (0-1); the glowing curve is only drawn when > 0.
- * @param {Object} options - Drawing options: `color` (base wave), `progressColor` (played wave).
- * @returns {void}
+ * @param ctx - Canvas 2D context to draw into.
+ * @param canvas - Canvas element (provides device-pixel dimensions).
+ * @param peaks - Normalised waveform peak values (0-1).
+ * @param progress - Playback progress (0-1); the glowing curve is only drawn when > 0.
+ * @param options - Drawing options: `color` (base wave), `progressColor` (played wave).
+ * @returns 
  */
-export function drawLine(ctx, canvas, peaks, progress, options) {
+export function drawLine(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, peaks: number[], progress: number, options: Record<string, any>): void {
     const width = canvas.width;
     const height = canvas.height;
     const centerY = height / 2;
@@ -276,13 +276,12 @@ export function drawLine(ctx, canvas, peaks, progress, options) {
     /**
      * Stroke a bezier-smoothed curve through the (optionally sine-modulated) peaks.
      * @private
-     * @param {string} color - Stroke colour (and shadow colour when glowing).
-     * @param {number} lineWidth - Stroke width in pixels.
-     * @param {number} [endProgress=1] - Fraction (0-1) of the peaks to draw, left to right.
-     * @param {boolean} [addGlow=false] - When true, applies a coloured shadow blur for a glow effect.
-     * @returns {void}
+     * @param color - Stroke colour (and shadow colour when glowing).
+     * @param lineWidth - Stroke width in pixels.
+     * @param endProgress - Fraction (0-1) of the peaks to draw, left to right. Default 1.
+     * @param addGlow - When true, applies a coloured shadow blur for a glow effect.
      */
-    const drawCurve = (color, lineWidth, endProgress = 1, addGlow = false) => {
+    const drawCurve = (color: string | string[], lineWidth: number, endProgress: number = 1, addGlow: boolean = false): void => {
         // strokeStyle accepts a gradient; shadowColor must be a solid string, so
         // collapse a stop array to its last stop for the glow.
         const stroke = makeFill(ctx, color, canvas, options);
@@ -366,15 +365,15 @@ export function drawLine(ctx, canvas, peaks, progress, options) {
  * symmetrically up and down from the centre line (the shared centre block is not
  * duplicated downward). Per-bar colour is chosen by comparing the bar's x against
  * the played width — there is no clip overlay here.
- * @param {CanvasRenderingContext2D} ctx - Canvas 2D context to draw into.
- * @param {HTMLCanvasElement} canvas - Canvas element (provides device-pixel dimensions).
- * @param {number[]} peaks - Normalised waveform peak values (0-1).
- * @param {number} progress - Playback progress (0-1) used to pick each bar's colour.
- * @param {Object} options - Drawing options: `barWidth` (default 3), `barSpacing` (default 1),
+ * @param ctx - Canvas 2D context to draw into.
+ * @param canvas - Canvas element (provides device-pixel dimensions).
+ * @param peaks - Normalised waveform peak values (0-1).
+ * @param progress - Playback progress (0-1) used to pick each bar's colour.
+ * @param options - Drawing options: `barWidth` (default 3), `barSpacing` (default 1),
  *   `color`, `progressColor`.
- * @returns {void}
+ * @returns 
  */
-export function drawBlocks(ctx, canvas, peaks, progress, options) {
+export function drawBlocks(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, peaks: number[], progress: number, options: Record<string, any>): void {
     const dpr = window.devicePixelRatio || 1;
     const barWidth = (options.barWidth || 3) * dpr;
     const barSpacing = (options.barSpacing || 1) * dpr;
@@ -419,15 +418,15 @@ export function drawBlocks(ctx, canvas, peaks, progress, options) {
  * For each sample a dot is drawn above and below the centre line at half the peak
  * height; dot radius scales with bar width but is floored at 1.5 device pixels.
  * Per-dot colour is chosen by comparing x against the played width (no clip overlay).
- * @param {CanvasRenderingContext2D} ctx - Canvas 2D context to draw into.
- * @param {HTMLCanvasElement} canvas - Canvas element (provides device-pixel dimensions).
- * @param {number[]} peaks - Normalised waveform peak values (0-1).
- * @param {number} progress - Playback progress (0-1) used to pick each dot's colour.
- * @param {Object} options - Drawing options: `barWidth` (default 2), `barSpacing` (default 3),
+ * @param ctx - Canvas 2D context to draw into.
+ * @param canvas - Canvas element (provides device-pixel dimensions).
+ * @param peaks - Normalised waveform peak values (0-1).
+ * @param progress - Playback progress (0-1) used to pick each dot's colour.
+ * @param options - Drawing options: `barWidth` (default 2), `barSpacing` (default 3),
  *   `color`, `progressColor`.
- * @returns {void}
+ * @returns 
  */
-export function drawDots(ctx, canvas, peaks, progress, options) {
+export function drawDots(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, peaks: number[], progress: number, options: Record<string, any>): void {
     const dpr = window.devicePixelRatio || 1;
     const barWidth = (options.barWidth || 2) * dpr;
     const barSpacing = (options.barSpacing || 3) * dpr;
@@ -469,14 +468,14 @@ export function drawDots(ctx, canvas, peaks, progress, options) {
  * draggable circular handle/thumb at the playhead (clamped so it never clips
  * at the track ends).
  * The `peaks` argument is accepted for signature parity but is unused by this style.
- * @param {CanvasRenderingContext2D} ctx - Canvas 2D context to draw into.
- * @param {HTMLCanvasElement} canvas - Canvas element (provides device-pixel dimensions).
- * @param {number[]} peaks - Ignored; present to match the shared draw-function signature.
- * @param {number} progress - Playback progress (0-1); the fill and handle are only drawn when > 0.
- * @param {Object} options - Drawing options: `color` (track), `progressColor` (fill/glow/accent).
- * @returns {void}
+ * @param ctx - Canvas 2D context to draw into.
+ * @param canvas - Canvas element (provides device-pixel dimensions).
+ * @param peaks - Ignored; present to match the shared draw-function signature.
+ * @param progress - Playback progress (0-1); the fill and handle are only drawn when > 0.
+ * @param options - Drawing options: `color` (track), `progressColor` (fill/glow/accent).
+ * @returns 
  */
-export function drawSeekbar(ctx, canvas, peaks, progress, options) {
+export function drawSeekbar(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, peaks: number[], progress: number, options: Record<string, any>): void {
     const width = canvas.width;
     const height = canvas.height;
     const centerY = height / 2;
@@ -534,15 +533,15 @@ export const DRAWING_STYLES = {
 /**
  * Main drawing entry point that delegates to the style named by
  * `options.waveformStyle`, falling back to {@link drawBars} for unknown styles.
- * @param {CanvasRenderingContext2D} ctx - Canvas context
- * @param {HTMLCanvasElement} canvas - Canvas element
- * @param {number[]} peaks - Waveform peak data (0-1)
- * @param {number} progress - Progress (0-1)
- * @param {Object} options - Drawing options, including `waveformStyle` plus the
+ * @param ctx - Canvas context
+ * @param canvas - Canvas element
+ * @param peaks - Waveform peak data (0-1)
+ * @param progress - Progress (0-1)
+ * @param options - Drawing options, including `waveformStyle` plus the
  *   per-style fields (`barWidth`, `barSpacing`, `barRadius`, `color`, `progressColor`).
- * @returns {void}
+ * @returns 
  */
-export function draw(ctx, canvas, peaks, progress, options) {
-    const drawFunc = DRAWING_STYLES[options.waveformStyle] || drawBars;
+export function draw(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, peaks: number[], progress: number, options: Record<string, any>): void {
+    const drawFunc = DRAWING_STYLES[options.waveformStyle as keyof typeof DRAWING_STYLES] || drawBars;
     drawFunc(ctx, canvas, peaks, progress, options);
 }
