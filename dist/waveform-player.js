@@ -167,6 +167,9 @@
     setBool("showLoop");
     setBool("showVolume");
     setNum("volume", "volume", true);
+    setBool("showDownload");
+    if (element.dataset.downloadUrl) options.downloadUrl = element.dataset.downloadUrl;
+    if (element.dataset.downloadName) options.downloadName = element.dataset.downloadName;
     if (element.dataset.title) options.title = element.dataset.title;
     if (element.dataset.artist) options.artist = element.dataset.artist;
     if (element.dataset.album) options.album = element.dataset.album;
@@ -192,6 +195,7 @@
     if (element.dataset.loopLabel) options.loopLabel = element.dataset.loopLabel;
     if (element.dataset.volumeLabel) options.volumeLabel = element.dataset.volumeLabel;
     if (element.dataset.muteLabel) options.muteLabel = element.dataset.muteLabel;
+    if (element.dataset.downloadLabel) options.downloadLabel = element.dataset.downloadLabel;
     if (element.dataset.artworkAlt) options.artworkAlt = element.dataset.artworkAlt;
     if (element.dataset.unknownTrackText) options.unknownTrackText = element.dataset.unknownTrackText;
     if (element.dataset.playIcon) options.playIcon = element.dataset.playIcon;
@@ -224,6 +228,14 @@
       hash = (hash << 5) + hash + str.charCodeAt(i) | 0;
     }
     return `wp_${(hash >>> 0).toString(36)}_${(idCounter++).toString(36)}`;
+  }
+  function fileNameFromUrl(url) {
+    const name = url.split(/[?#]/)[0].split("/").pop() || "";
+    try {
+      return decodeURIComponent(name);
+    } catch (e) {
+      return name;
+    }
   }
   function extractTitleFromUrl(url) {
     if (!url) return "Audio";
@@ -891,6 +903,11 @@
     showVolume: false,
     // Initial volume, 0..1. null = leave the element's default (1).
     volume: null,
+    // A download link (<a download>) in the meta row. downloadUrl defaults to
+    // the track url, downloadName to the url's file name. Both per-track.
+    showDownload: false,
+    downloadUrl: null,
+    downloadName: null,
     enableMediaSession: true,
     // Markers
     markers: [],
@@ -936,6 +953,7 @@
     loopLabel: "Loop",
     volumeLabel: "Volume",
     muteLabel: "Mute",
+    downloadLabel: "Download",
     artworkAlt: "Album artwork",
     unknownTrackText: "Unknown Track",
     // Icons (SVG)
@@ -1011,7 +1029,8 @@
     "lazy",
     "loop",
     "showLoop",
-    "showVolume"
+    "showVolume",
+    "showDownload"
   ];
   var CALLBACKS = [
     "onLoad",
@@ -1104,6 +1123,7 @@
   );
   var svgIcon = (d) => `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="${d}"/></svg>`;
   var LOOP_ICON = svgIcon("M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z");
+  var DOWNLOAD_ICON = svgIcon("M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z");
   var SPEAKER = "M3 9v6h4l5 5V4L7 9H3z";
   var VOLUME_ICON = svgIcon(SPEAKER + "m13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02z");
   var MUTED_ICON = svgIcon(SPEAKER + "m18 .4L19.6 8 17 10.6 14.4 8 13 9.4l2.6 2.6-2.6 2.6 1.4 1.4 2.6-2.6 2.6 2.6 1.4-1.4-2.6-2.6z");
@@ -1427,6 +1447,9 @@
               <input type="range" class="waveform-volume-slider" min="0" max="1" step="0.05" aria-label="${escapeHtml(this.options.volumeLabel)}">
             </span>
           ` : ""}
+          ${this.options.showDownload ? `
+            <a class="waveform-ctrl waveform-download" aria-label="${escapeHtml(this.options.downloadLabel)}">${DOWNLOAD_ICON}</a>
+          ` : ""}
           ${this.options.showTime ? `
             <span class="waveform-time">
               <span class="time-current">0:00</span> / <span class="time-total">0:00</span>
@@ -1477,6 +1500,8 @@
       this.loopBtn = this.container.querySelector(".waveform-loop");
       this.muteBtn = this.container.querySelector(".waveform-mute");
       this.volumeEl = this.container.querySelector(".waveform-volume-slider");
+      this.downloadEl = this.container.querySelector(".waveform-download");
+      this._syncDownload();
       this.resizeCanvas();
       this.updateBPMDisplay();
       this._showDuration();
@@ -1660,6 +1685,26 @@
       }
       if (this.options.showPlaybackSpeed) {
         this.initSpeedControls();
+      }
+    }
+    /**
+     * Point the `showDownload` link at the current track: `downloadUrl`, else
+     * the track url, saved as `downloadName`, else the url's file name. With
+     * no usable URL (none, or not http(s)/relative) the link is hidden — an
+     * `<a>` without `href` isn't focusable, so it would be a dead control.
+     * @internal
+     */
+    _syncDownload() {
+      const a = this.downloadEl;
+      if (!a) return;
+      const url = this.options.downloadUrl || this.options.url;
+      const ok = !!url && isSafeHref(url);
+      a.hidden = !ok;
+      if (ok) {
+        a.href = url;
+        a.download = this.options.downloadName || fileNameFromUrl(url);
+      } else {
+        a.removeAttribute("href");
       }
     }
     /**
@@ -2244,6 +2289,7 @@
         this.detectedBPM = null;
         this.updateBPMDisplay();
         this.options.url = url;
+        this._syncDownload();
         const inlinePeaks = this.options.waveform;
         const sidecar = inlinePeaks ? this.setWaveformData(inlinePeaks) : null;
         const title = this.options.title || extractTitleFromUrl(url);
@@ -2386,7 +2432,7 @@
       } else if (hasArtworkOption) {
         this.options.artworkAlt = this.options.artwork ? DEFAULT_OPTIONS.artworkAlt : "";
       }
-      for (const key of ["bpm", "album", "duration"]) {
+      for (const key of ["bpm", "album", "duration", "downloadUrl", "downloadName"]) {
         if (options[key] == null) this.options[key] = DEFAULT_OPTIONS[key];
       }
       if (options.preload && this.audio) {

@@ -59,6 +59,13 @@ All notable changes to this project will be documented in this file.
   other change to the audio. Where scripted volume is ignored (iOS) the slider
   is hidden and mute stays. `volume` (`data-volume`, 0..1) sets the initial
   volume, and `getVolume()` / `setMuted()` join `setVolume()`. Self mode only.
+- **Download link.** `showDownload` (`data-show-download`) adds an
+  `<a download>` named by `downloadLabel`, for `downloadUrl`
+  (`data-download-url`, default: the track url) saved as `downloadName`
+  (`data-download-name`, default: the url's file name). It follows the track
+  through `loadTrack()`. Browsers ignore `download` for cross-origin URLs
+  unless the server sends `Content-Disposition: attachment`, and navigate to
+  the file instead.
 
 ### Changed
 

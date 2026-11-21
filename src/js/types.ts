@@ -293,6 +293,34 @@ export interface WaveformPlayerOptions {
 	 * @default null
 	 */
 	volume?: number | null;
+	/**
+	 * Show a download link (`data-show-download`) in the meta row: a real
+	 * `<a href download>`, named by `downloadLabel`, for `downloadUrl` (default:
+	 * the track's url) saved as `downloadName` (default: the url's file name).
+	 * Follows the track through `loadTrack()`. Hidden while there is no URL, or
+	 * one that isn't http(s) or relative.
+	 *
+	 * Browsers only honour the `download` attribute for same-origin URLs (and
+	 * `blob:`/`data:`). For a cross-origin URL they ignore it and navigate to the
+	 * file instead — usually playing it in a new page — unless the server sends
+	 * `Content-Disposition: attachment`. Serve downloads from your own origin, or
+	 * with that header. Works in both audio modes. Needs `showInfo` (the meta row).
+	 * @default false
+	 */
+	showDownload?: boolean;
+	/**
+	 * URL the download link points at (`data-download-url`), e.g. a
+	 * full-quality file when the player streams a preview. Per-track:
+	 * `loadTrack()` resets it unless the call supplies one.
+	 * @default null (the track url)
+	 */
+	downloadUrl?: string | null;
+	/**
+	 * File name suggested for the download (`data-download-name`). Per-track:
+	 * `loadTrack()` resets it unless the call supplies one.
+	 * @default null (the file name from the url)
+	 */
+	downloadName?: string | null;
 	/** Register system Media Session controls (self mode only). @default true */
 	enableMediaSession?: boolean;
 
@@ -333,6 +361,8 @@ export interface WaveformPlayerOptions {
 	volumeLabel?: string;
 	/** Accessible label for the mute toggle (`showVolume`). Localize for non-English UIs. @default 'Mute' */
 	muteLabel?: string;
+	/** Accessible label for the download link (`showDownload`). Localize for non-English UIs. @default 'Download' */
+	downloadLabel?: string;
 
 	// ── Content metadata ──────────────────────────────────────────
 	title?: string | null;

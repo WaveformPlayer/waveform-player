@@ -16,6 +16,8 @@ import {
     debounce,
     clamp,
     escapeHtml,
+    isSafeHref,
+    fileNameFromUrl,
     formatCssLength,
     toFiniteNumber,
     toPeaks,
@@ -66,6 +68,7 @@ const ARTWORK_FALLBACK = 'data:image/svg+xml,' + encodeURIComponent(
 // by its aria-label). Material Symbols paths, 24px grid, drawn in currentColor.
 const svgIcon = (d: string) => `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="${d}"/></svg>`;
 const LOOP_ICON = svgIcon('M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z');
+const DOWNLOAD_ICON = svgIcon('M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z');
 const SPEAKER = 'M3 9v6h4l5 5V4L7 9H3z';
 const VOLUME_ICON = svgIcon(SPEAKER + 'm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02z');
 const MUTED_ICON = svgIcon(SPEAKER + 'm18 .4L19.6 8 17 10.6 14.4 8 13 9.4l2.6 2.6-2.6 2.6 1.4 1.4 2.6-2.6 2.6 2.6 1.4-1.4-2.6-2.6z');
@@ -184,6 +187,7 @@ export class WaveformPlayer extends EventTarget {
     /** @internal */ declare loopBtn: HTMLButtonElement | null;
     /** @internal */ declare muteBtn: HTMLButtonElement | null;
     /** @internal */ declare volumeEl: HTMLInputElement | null;
+    /** @internal */ declare downloadEl: HTMLAnchorElement | null;
     /** @internal The section loop, if any (see setLoop). */ declare _loopRange: { start: number; end: number } | null;
     /** @internal The next `seeking` is one the player asked for (not a loop wrap). */ declare _ownSeek: boolean;
     /** @internal */ declare seekEl: HTMLElement | null;
@@ -622,6 +626,9 @@ export class WaveformPlayer extends EventTarget {
               <input type="range" class="waveform-volume-slider" min="0" max="1" step="0.05" aria-label="${escapeHtml(this.options.volumeLabel)}">
             </span>
           ` : ''}
+          ${this.options.showDownload ? `
+            <a class="waveform-ctrl waveform-download" aria-label="${escapeHtml(this.options.downloadLabel)}">${DOWNLOAD_ICON}</a>
+          ` : ''}
           ${this.options.showTime ? `
             <span class="waveform-time">
               <span class="time-current">0:00</span> / <span class="time-total">0:00</span>
@@ -683,6 +690,8 @@ export class WaveformPlayer extends EventTarget {
         this.loopBtn = this.container.querySelector<HTMLButtonElement>('.waveform-loop');
         this.muteBtn = this.container.querySelector<HTMLButtonElement>('.waveform-mute');
         this.volumeEl = this.container.querySelector<HTMLInputElement>('.waveform-volume-slider');
+        this.downloadEl = this.container.querySelector<HTMLAnchorElement>('.waveform-download');
+        this._syncDownload();
 
         // Set canvas size
         this.resizeCanvas();
@@ -910,6 +919,27 @@ export class WaveformPlayer extends EventTarget {
         // Initialize speed control UI if enabled
         if (this.options.showPlaybackSpeed) {
             this.initSpeedControls();
+        }
+    }
+
+    /**
+     * Point the `showDownload` link at the current track: `downloadUrl`, else
+     * the track url, saved as `downloadName`, else the url's file name. With
+     * no usable URL (none, or not http(s)/relative) the link is hidden — an
+     * `<a>` without `href` isn't focusable, so it would be a dead control.
+     * @internal
+     */
+    _syncDownload() {
+        const a = this.downloadEl;
+        if (!a) return;
+        const url = this.options.downloadUrl || this.options.url;
+        const ok = !!url && isSafeHref(url);
+        a.hidden = !ok;
+        if (ok) {
+            a.href = url;
+            a.download = this.options.downloadName || fileNameFromUrl(url);
+        } else {
+            a.removeAttribute('href');
         }
     }
 
@@ -1630,6 +1660,7 @@ export class WaveformPlayer extends EventTarget {
             // reports the track actually loaded, even if the load fails.
             // loadTrack() already sets it; a direct load(url) didn't. See #30.
             this.options.url = url;
+            this._syncDownload();
 
             // Caller-supplied peaks describe the file, not the element's
             // playback state, so draw them up front rather than behind the
@@ -1839,11 +1870,11 @@ export class WaveformPlayer extends EventTarget {
             this.options.artworkAlt = this.options.artwork ? DEFAULT_OPTIONS.artworkAlt : '';
         }
 
-        // `bpm`, `album` and `duration` describe one track. mergeOptions()
-        // skips null sources, so without this the previous track's tempo
-        // badge, lock-screen album and length would carry over to every track
-        // after it.
-        for (const key of ['bpm', 'album', 'duration']) {
+        // `bpm`, `album`, `duration` and the download target describe one
+        // track. mergeOptions() skips null sources, so without this the
+        // previous track's tempo badge, lock-screen album, length and download
+        // would carry over to every track after it.
+        for (const key of ['bpm', 'album', 'duration', 'downloadUrl', 'downloadName']) {
             if ((options as Record<string, any>)[key] == null) (this.options as Record<string, any>)[key] = (DEFAULT_OPTIONS as Record<string, any>)[key];
         }
 

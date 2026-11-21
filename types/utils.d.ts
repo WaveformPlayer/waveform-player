@@ -253,6 +253,15 @@ export declare function formatTime(seconds: number): string;
  */
 export declare function generateId(url: string): string;
 /**
+ * The file name at the end of a URL's path — no query or fragment, percent-
+ * decoded (left as-is if it doesn't decode). `''` when the path ends in `/`.
+ * @param url - A URL.
+ * @returns The file name.
+ * @example
+ * fileNameFromUrl('/audio/My%20Track.mp3?v=2'); // 'My Track.mp3'
+ */
+export declare function fileNameFromUrl(url: string): string;
+/**
  * Derive a human-readable title from an audio URL's filename.
  *
  * Takes the last path segment, drops the extension, replaces `-`/`_`

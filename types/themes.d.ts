@@ -107,6 +107,9 @@ export declare const DEFAULT_OPTIONS: {
     showLoop: boolean;
     showVolume: boolean;
     volume: null;
+    showDownload: boolean;
+    downloadUrl: null;
+    downloadName: null;
     enableMediaSession: boolean;
     markers: never[];
     showMarkers: boolean;
@@ -124,6 +127,7 @@ export declare const DEFAULT_OPTIONS: {
     loopLabel: string;
     volumeLabel: string;
     muteLabel: string;
+    downloadLabel: string;
     artworkAlt: string;
     unknownTrackText: string;
     playIcon: string;

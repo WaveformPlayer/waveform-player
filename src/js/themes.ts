@@ -353,6 +353,11 @@ export const DEFAULT_OPTIONS = {
     showVolume: false,
     // Initial volume, 0..1. null = leave the element's default (1).
     volume: null,
+    // A download link (<a download>) in the meta row. downloadUrl defaults to
+    // the track url, downloadName to the url's file name. Both per-track.
+    showDownload: false,
+    downloadUrl: null,
+    downloadName: null,
     enableMediaSession: true,
 
     // Markers
@@ -403,6 +408,7 @@ export const DEFAULT_OPTIONS = {
     loopLabel: 'Loop',
     volumeLabel: 'Volume',
     muteLabel: 'Mute',
+    downloadLabel: 'Download',
     artworkAlt: 'Album artwork',
     unknownTrackText: 'Unknown Track',
 
@@ -517,7 +523,7 @@ const NUMBERS = {
 const BOOLEANS = [
     'autoplay', 'showControls', 'showInfo', 'showTime', 'showHoverTime',
     'seekHandle', 'showBPM', 'singlePlay', 'playOnSeek', 'enableMediaSession',
-    'showMarkers', 'accessibleSeek', 'showPlaybackSpeed', 'lazy', 'loop', 'showLoop', 'showVolume'
+    'showMarkers', 'accessibleSeek', 'showPlaybackSpeed', 'lazy', 'loop', 'showLoop', 'showVolume', 'showDownload'
 ];
 
 /**

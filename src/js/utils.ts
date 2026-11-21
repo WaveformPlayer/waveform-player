@@ -436,6 +436,9 @@ export function parseDataAttributes(element: HTMLElement): Record<string, any> {
     setBool('showLoop');
     setBool('showVolume');
     setNum('volume', 'volume', true);
+    setBool('showDownload');
+    if (element.dataset.downloadUrl) options.downloadUrl = element.dataset.downloadUrl;
+    if (element.dataset.downloadName) options.downloadName = element.dataset.downloadName;
 
     // Content and metadata
     if (element.dataset.title) options.title = element.dataset.title;
@@ -480,6 +483,7 @@ export function parseDataAttributes(element: HTMLElement): Record<string, any> {
     if (element.dataset.loopLabel) options.loopLabel = element.dataset.loopLabel;
     if (element.dataset.volumeLabel) options.volumeLabel = element.dataset.volumeLabel;
     if (element.dataset.muteLabel) options.muteLabel = element.dataset.muteLabel;
+    if (element.dataset.downloadLabel) options.downloadLabel = element.dataset.downloadLabel;
     if (element.dataset.artworkAlt) options.artworkAlt = element.dataset.artworkAlt;
     if (element.dataset.unknownTrackText) options.unknownTrackText = element.dataset.unknownTrackText;
 
@@ -561,6 +565,23 @@ export function generateId(url: string): string {
         hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
     }
     return `wp_${(hash >>> 0).toString(36)}_${(idCounter++).toString(36)}`;
+}
+
+/**
+ * The file name at the end of a URL's path — no query or fragment, percent-
+ * decoded (left as-is if it doesn't decode). `''` when the path ends in `/`.
+ * @param url - A URL.
+ * @returns The file name.
+ * @example
+ * fileNameFromUrl('/audio/My%20Track.mp3?v=2'); // 'My Track.mp3'
+ */
+export function fileNameFromUrl(url: string): string {
+    const name = url.split(/[?#]/)[0].split('/').pop() || '';
+    try {
+        return decodeURIComponent(name);
+    } catch (e) {
+        return name;
+    }
 }
 
 /**

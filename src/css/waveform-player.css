@@ -511,6 +511,11 @@
     transition: color 0.2s, background-color 0.2s;
 }
 
+/* `hidden` must win over the display above (a download link with no URL). */
+.waveform-ctrl[hidden] {
+    display: none;
+}
+
 .waveform-ctrl:hover,
 .waveform-ctrl[aria-pressed="true"] {
     color: var(--wfp-text-color);
