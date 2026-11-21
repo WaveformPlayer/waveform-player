@@ -2428,8 +2428,14 @@
         this.pause();
       }
       if (this.audio) {
-        this.audio.src = "";
-        this.audio.load();
+        const preload = options.preload ?? this.options.preload;
+        if (preload === "none") {
+          this.audio.pause();
+          this.audio.removeAttribute("src");
+        } else {
+          this.audio.src = "";
+          this.audio.load();
+        }
       }
       this._resetTrack();
       this.options = normalizeOptions(mergeOptions(this.options, {

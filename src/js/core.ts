@@ -1849,10 +1849,19 @@ export class WaveformPlayer extends EventTarget {
             this.pause();
         }
 
-        // Reset audio element completely (only when we own one)
+        // Reset audio element completely (only when we own one). Under
+        // preload 'none' skip the load(): Firefox ignores preload="none" for
+        // the next source after a scripted load() and fetches it anyway. The
+        // new src assignment in load() still aborts the old resource.
         if (this.audio) {
-            this.audio.src = '';
-            this.audio.load();
+            const preload = options.preload ?? this.options.preload;
+            if (preload === 'none') {
+                this.audio.pause();
+                this.audio.removeAttribute('src');
+            } else {
+                this.audio.src = '';
+                this.audio.load();
+            }
         }
 
         // Peaks, progress, duration, time readout, markers. The error state

@@ -255,3 +255,24 @@ describe('end of track', () => {
 	});
 });
 
+describe('switching tracks under preload none', () => {
+	// Firefox ignores preload="none" for the next source after a scripted
+	// load(), so the reset must not call it there (checked in real Firefox).
+	it('does not call audio.load() when the new track is preload none', async () => {
+		const { player } = mount(lazyTrack());
+		await frame();
+		const load = vi.spyOn(player.audio, 'load');
+		await player.loadTrack('b.mp3', 'B', null, { preload: 'none', waveform: PEAKS, autoplay: false });
+		expect(load).not.toHaveBeenCalled();
+		expect(player.audio.getAttribute('src')).toBe('b.mp3');
+	});
+
+	it('still resets with load() for other preload values', async () => {
+		const { player } = mount({ url: 'a.mp3', waveform: PEAKS, preload: 'none' });
+		await frame();
+		const load = vi.spyOn(player.audio, 'load');
+		player.loadTrack('b.mp3', 'B', null, { preload: 'metadata', waveform: PEAKS, autoplay: false });
+		expect(load).toHaveBeenCalled();
+	});
+});
+

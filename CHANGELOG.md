@@ -13,6 +13,14 @@ All notable changes to this project will be documented in this file.
   auto-init (`<html data-waveform-autoinit="false">`), which has no ES module
   import to reach `defineWaveformPlayerElement()`.
 
+### Fixed
+
+- **No audio download on a track switch under `preload: 'none'` in Firefox.**
+  `loadTrack()` reset the audio element with a scripted `load()`, after which
+  Firefox ignores `preload="none"` for the next source and fetched it anyway
+  (checked in real Firefox; Chromium and WebKit already didn't). The reset
+  skips `load()` there; the new source still replaces the old one.
+
 ## [2.0.0] — 2026-11-21
 
 ### Added
