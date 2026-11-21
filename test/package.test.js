@@ -23,6 +23,9 @@ const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 const entryOf = (script) => script.match(/esbuild\s+(\S+)/)?.[1];
 /** @param {string} script - An esbuild command line. @returns {string|undefined} */
 const outfileOf = (script) => script.match(/--outfile=(\S+)/)?.[1];
+// `build:esm` builds both ES module entries in one esbuild run (`name=entry`
+// pairs, --splitting) so they share one chunk instead of two copies.
+const esmEntries = () => Object.fromEntries([...pkg.scripts['build:esm'].matchAll(/(\S+)=(src\/js\/\S+)/g)].map((m) => [m[1], m[2]]));
 
 describe('entry point packaging', () => {
 	it('reads the package manifest it means to assert against', () => {
@@ -41,26 +44,23 @@ describe('entry point packaging', () => {
 		// The whole point of the subpath. index.js *is* entry.js plus the
 		// import-time scan, so building this bundle from index.js would ship
 		// something that still scans under a name promising it doesn't.
-		expect(entryOf(pkg.scripts['build:no-autoinit:esm'])).toBe('src/js/entry.ts');
+		expect(esmEntries()['waveform-player-no-autoinit.esm']).toBe('src/js/entry.ts');
 	});
 
 	it('still builds the default bundles from index.ts', () => {
 		// The mirror image: entry.js here would silently delete auto-init for
 		// every existing consumer.
-		for (const name of ['build:iife', 'build:esm', 'build:min']) {
+		for (const name of ['build:iife', 'build:min']) {
 			expect(entryOf(pkg.scripts[name]), name).toBe('src/js/index.ts');
 		}
+		expect(esmEntries()['waveform-player.esm']).toBe('src/js/index.ts');
 	});
 
 	it('writes each bundle to the path its exports condition points at', () => {
-		const built = {
-			'./dist/waveform-player.esm.js': 'build:esm',
-			'./dist/waveform-player-no-autoinit.esm.js': 'build:no-autoinit:esm',
-		};
-
-		for (const [target, script] of Object.entries(built)) {
-			expect(`./${outfileOf(pkg.scripts[script])}`, script).toBe(target);
-		}
+		const outdir = pkg.scripts['build:esm'].match(/--outdir=(\S+)/)?.[1];
+		const written = Object.keys(esmEntries()).map((name) => `./${outdir}/${name}.js`).sort();
+		expect(written).toEqual([pkg.exports['.'].import, pkg.exports['./no-autoinit'].import].sort());
+		expect(pkg.scripts['build:esm']).toContain('--splitting');
 	});
 
 	it('ships no CommonJS build (2.0: require() of the ES module works on Node 22.12+)', () => {
@@ -74,8 +74,8 @@ describe('entry point packaging', () => {
 	it('runs the no-autoinit targets as part of npm run build', () => {
 		// An unreferenced build script means `prepublishOnly` publishes a
 		// tarball whose subpath points at a file that was never written.
-		expect(pkg.scripts.build).toContain('build:no-autoinit');
-		expect(pkg.scripts['build:no-autoinit']).toContain('build:no-autoinit:esm');
+		expect(pkg.scripts.build).toContain('build:esm');
+		expect(Object.keys(esmEntries())).toContain('waveform-player-no-autoinit.esm');
 	});
 
 	it('ships the declaration file the subpath resolves to', () => {

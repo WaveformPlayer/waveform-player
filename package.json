@@ -30,13 +30,11 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "npm run build:css && npm run build:iife && npm run build:esm && npm run build:min && npm run build:no-autoinit && npm run build:types",
+    "build": "npm run build:css && npm run build:iife && npm run build:esm && npm run build:min && npm run build:types",
     "build:css": "esbuild src/css/waveform-player.css --minify --outfile=dist/waveform-player.css",
     "build:iife": "esbuild src/js/index.ts --bundle --format=iife --outfile=dist/waveform-player.js",
     "build:min": "esbuild src/js/index.ts --bundle --format=iife --outfile=dist/waveform-player.min.js --minify",
-    "build:no-autoinit": "npm run build:no-autoinit:esm",
-    "build:no-autoinit:esm": "esbuild src/js/entry.ts --bundle --format=esm --outfile=dist/waveform-player-no-autoinit.esm.js --minify",
-    "build:esm": "esbuild src/js/index.ts --bundle --format=esm --outfile=dist/waveform-player.esm.js --minify",
+    "build:esm": "esbuild waveform-player.esm=src/js/index.ts waveform-player-no-autoinit.esm=src/js/entry.ts --bundle --splitting --format=esm --outdir=dist --chunk-names=waveform-player-shared.esm --minify",
     "dev": "npm run build:css && esbuild src/js/index.ts --bundle --format=iife --outfile=dist/waveform-player.js --watch",
     "dev:css": "esbuild src/css/waveform-player.css --outfile=dist/waveform-player.css --watch",
     "dev:demo": "npm run build:css && concurrently \"npm run dev\" \"npm run dev:css\"",
@@ -92,6 +90,7 @@
   "sideEffects": [
     "*.css",
     "./dist/waveform-player.esm.js",
+    "./dist/waveform-player-shared.esm.js",
     "./dist/waveform-player-no-autoinit.esm.js",
     "./dist/waveform-player.js",
     "./dist/waveform-player.min.js",

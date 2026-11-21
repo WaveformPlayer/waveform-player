@@ -111,11 +111,17 @@ for (const spec of ['@arraypress/waveform-player', '@arraypress/waveform-player/
 		cjsPath: require.resolve(spec),
 	};
 }
+out.sameClass = (await import('@arraypress/waveform-player')).default === (await import('@arraypress/waveform-player/no-autoinit')).default;
 console.log(JSON.stringify(out));
 `
 	);
 	const resolved = JSON.parse(run('node', [probe], consumer).trim());
 
+	// The two ES module entries share one chunk (2.0): an app that imports the
+	// root (bar/playlist/sounds users) and /no-autoinit (the framework
+	// components) gets ONE class and one registry, not two copies.
+	check('the root and /no-autoinit export the same class (shared chunk)', resolved.sameClass === true);
+	delete resolved.sameClass;
 	for (const [spec, r] of Object.entries(resolved)) {
 		check(`${spec} — ESM import gives the class`, r.esmDefaultIsFn && r.esmNamedIsFn);
 		check(`${spec} — require() gives the class`, r.cjsDefaultIsFn);

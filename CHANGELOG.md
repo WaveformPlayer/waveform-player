@@ -104,6 +104,12 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **One copy of the player when both entry points are imported.** An app that
+  imported the root (as waveform-bar, -playlist and -sounds users do) and
+  `/no-autoinit` (as the framework components do) bundled the whole player
+  twice: two classes, two instance registries, so `singlePlay` and
+  `WaveformPlayer.instances` didn't see each other's players. The two ES module
+  entries are now built together and share `waveform-player-shared.esm.js`.
 - **A small `height` is respected on phones.** Below 480px the stylesheet still
   gave the waveform a 50px minimum, so a `height: 32` player (like the slim
   waveform in waveform-bar) rendered 50px tall with its canvas stretched. The
