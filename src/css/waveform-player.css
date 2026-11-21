@@ -212,14 +212,14 @@ waveform-player:not(:defined) {
     width: 100%;
 }
 
+/* No flex sizing here: since 1.30.0 the slider sits in .waveform-surface (a
+   block), not the flex row, so the surface carries flex: 1 / min-width: 0. */
 .waveform-container {
-    flex: 1;
     position: relative;
     /* No min-height: resizeCanvas() sets the height inline from the `height`
        option during init, and a stylesheet floor here would beat any smaller
        value (height: 32 used to render at 60px, canvas stretched). */
     cursor: pointer;
-    min-width: 0;
     width: 100%;
 }
 
