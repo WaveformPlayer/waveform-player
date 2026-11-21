@@ -37,6 +37,22 @@ import {
 } from './themes.js';
 
 /**
+ * The classes the player puts on its mount container, and the only ones it
+ * may take off. createDOM() swaps these and leaves every other class alone,
+ * so a page or framework that styles the mount node (`class="my-theme"`, a
+ * Svelte/Vue scoped class, a CSS module) keeps its styling (#32). Listed
+ * explicitly rather than as a `waveform-` prefix so a page's own
+ * `waveform-something` class is never touched either. Add to this list when
+ * the player starts toggling a new class on the container.
+ */
+const CONTAINER_CLASSES = [
+    'waveform-player',
+    'waveform-layout-preview',
+    'waveform-theme-light',
+    'waveform-is-placeholder',
+];
+
+/**
  * Placeholder shown when an artwork URL fails to load (404 / broken) — a muted
  * music-note tile, so a missing cover degrades gracefully instead of showing the
  * browser's broken-image icon. Inline SVG data-URI (no font / network needed).
@@ -303,9 +319,13 @@ export class WaveformPlayer {
      * @private
      */
     createDOM() {
-        // Clear container
+        // Clear container. The player renders into it, so its children are
+        // replaced; its classes are not — only the player's own are reset
+        // (state left by an earlier build on this element), then
+        // `waveform-player` is added beside whatever the page put there (#32).
         this.container.innerHTML = '';
-        this.container.className = 'waveform-player';
+        this.container.classList.remove(...CONTAINER_CLASSES);
+        this.container.classList.add('waveform-player');
 
         // Determine button alignment. normalizeOptions() has already rejected
         // unrecognised values, but the resolved name is interpolated into a

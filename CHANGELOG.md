@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.30.2] — 2026-11-21
+
+### Fixed
+
+- **The player keeps the classes already on its mount element.** Building the
+  player assigned `className = "waveform-player"`, which wiped every class the
+  page or a framework had put on the container: a theme class carrying
+  `--wfp-*` custom properties, a Svelte or Vue scoped class, a CSS module. It
+  now adds `waveform-player` beside them and resets only the classes the player
+  itself sets (`waveform-layout-preview`, `waveform-theme-light`,
+  `waveform-is-placeholder`), so a rebuild on the same element still starts
+  clean. The container's children are still replaced; the player renders into
+  it ([#32](https://github.com/WaveformPlayer/waveform-player/issues/32)).
+
 ## [1.30.1] — 2026-11-12
 
 ### Fixed

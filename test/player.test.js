@@ -245,6 +245,35 @@ describe('markers in external mode', () => {
 	});
 });
 
+describe('mount container classes (#32)', () => {
+	function mountOn(className, options = {}) {
+		const el = document.createElement('div');
+		el.className = className;
+		document.body.appendChild(el);
+		return { el, player: track(new WaveformPlayer(el, { audioMode: 'external', ...options })) };
+	}
+
+	it('keeps the classes the page put on the container, and adds its own beside them', () => {
+		// A page theming the node (`--wfp-*` on `.my-theme`), a framework's scoped
+		// class, and a page class that merely shares the `waveform-` prefix.
+		const { el } = mountOn('my-theme svelte-abc123 waveform-custom');
+		expect(el.classList.contains('waveform-player')).toBe(true);
+		expect(el.classList.contains('my-theme')).toBe(true);
+		expect(el.classList.contains('svelte-abc123')).toBe(true);
+		expect(el.classList.contains('waveform-custom')).toBe(true);
+	});
+
+	it('a rebuild on the same element drops the previous build\'s state classes, not the page\'s', () => {
+		const { el, player } = mountOn('my-theme', { layout: 'preview' });
+		expect(el.classList.contains('waveform-layout-preview')).toBe(true);
+		player.destroy();
+		track(new WaveformPlayer(el, { audioMode: 'external' }));
+		expect(el.classList.contains('waveform-layout-preview')).toBe(false);
+		expect(el.classList.contains('waveform-player')).toBe(true);
+		expect(el.classList.contains('my-theme')).toBe(true);
+	});
+});
+
 describe('destroy() teardown', () => {
 	it('aborts the listener controller so document/container listeners stop', () => {
 		const { player } = mount();
