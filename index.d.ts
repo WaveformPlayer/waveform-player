@@ -1,6 +1,6 @@
 /**
  * Type definitions for @arraypress/waveform-player
- * Project: https://github.com/arraypress/waveform-player
+ * Project: https://github.com/WaveformPlayer/waveform-player
  *
  * Hand-authored to mirror the runtime option surface and public API. This is
  * the single source of truth for the library's types — the React and Astro

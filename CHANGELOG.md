@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
   playhead and time readout return to where they were (WCAG 2.5.2 Pointer
   Cancellation). The canvas also sets `touch-action: pan-y`, so vertical swipes
   scroll the page and horizontal drags scrub
-  ([#31](https://github.com/arraypress/waveform-player/issues/31)).
+  ([#31](https://github.com/WaveformPlayer/waveform-player/issues/31)).
 
 ## [1.30.0] — 2026-10-21
 
@@ -262,7 +262,7 @@ All notable changes to this project will be documented in this file.
   track is still loading — and a load that fails — report the track being
   loaded.
 
-[#30]: https://github.com/arraypress/waveform-player/issues/30
+[#30]: https://github.com/WaveformPlayer/waveform-player/issues/30
 
 ## [1.27.0] — 2026-09-21
 
@@ -316,7 +316,7 @@ All notable changes to this project will be documented in this file.
   re-export in a `.d.ts` are all invisible to it — the last of those was real,
   and this caught it before publish.
 
-[#29]: https://github.com/arraypress/waveform-player/pull/29
+[#29]: https://github.com/WaveformPlayer/waveform-player/pull/29
 
 ## [1.26.0] — 2026-08-12
 
@@ -355,7 +355,7 @@ All notable changes to this project will be documented in this file.
   the rest of the page. A failed construction now unregisters itself and drops
   any listeners it had bound, then rethrows so the caller still sees it.
 
-[#24]: https://github.com/arraypress/waveform-player/pull/24
+[#24]: https://github.com/WaveformPlayer/waveform-player/pull/24
 
 ## [1.25.1] — 2026-08-11
 
@@ -386,7 +386,7 @@ All notable changes to this project will be documented in this file.
   removing auto-init. The ESM/CJS/IIFE entries are now declared. No behavior or
   output change; the pure modules under `src/js/` are still tree-shakeable.
 
-[#25]: https://github.com/arraypress/waveform-player/issues/25
+[#25]: https://github.com/WaveformPlayer/waveform-player/issues/25
 
 ## [1.25.0] — 2026-08-11
 
@@ -438,7 +438,7 @@ All notable changes to this project will be documented in this file.
 
 Thanks to [@scruffian](https://github.com/scruffian) for raising declarative
 config validation in
-[#22](https://github.com/arraypress/waveform-player/pull/22).
+[#22](https://github.com/WaveformPlayer/waveform-player/pull/22).
 
 ## [1.24.5] — 2026-08-10
 
@@ -468,7 +468,7 @@ config validation in
   continues to track the real loading state either way.
 
 Thanks to [@sporteka2](https://github.com/sporteka2) for reporting in
-[#23](https://github.com/arraypress/waveform-player/issues/23).
+[#23](https://github.com/WaveformPlayer/waveform-player/issues/23).
 
 ## [1.24.4] — 2026-08-10
 
@@ -487,7 +487,7 @@ Thanks to [@sporteka2](https://github.com/sporteka2) for reporting in
   re-initialized on the next scan. It is now skipped by instance lookup.
 
 Thanks to [@scruffian](https://github.com/scruffian) for reporting these in
-[#22](https://github.com/arraypress/waveform-player/pull/22).
+[#22](https://github.com/WaveformPlayer/waveform-player/pull/22).
 
 ## [1.24.3] — 2026-08-09
 
@@ -523,7 +523,7 @@ Thanks to [@scruffian](https://github.com/scruffian) for reporting these in
   `prefers-color-scheme` fallback was never reached, and re-detection hit the
   same short-circuit, so an OS theme switch didn't recover it either. Reported
   by [@sporteka2](https://github.com/sporteka2) in
-  [#21](https://github.com/arraypress/waveform-player/issues/21).
+  [#21](https://github.com/WaveformPlayer/waveform-player/issues/21).
 
 ### Changed
 
@@ -581,8 +581,8 @@ hints are unaffected — they still win before any of this runs.
   it (e.g. flat-line it into a plain progress bar). Ships no styles of its own —
   it's purely a hook. Contributed by
   [@Intenzi](https://github.com/Intenzi) in
-  [#20](https://github.com/arraypress/waveform-player/pull/20); resolves
-  [#19](https://github.com/arraypress/waveform-player/issues/19).
+  [#20](https://github.com/WaveformPlayer/waveform-player/pull/20); resolves
+  [#19](https://github.com/WaveformPlayer/waveform-player/issues/19).
 
 ## [1.23.0] — 2026-07-22
 
@@ -590,7 +590,7 @@ hints are unaffected — they still win before any of this runs.
 
 - **`crossOrigin` option.** Controls the CORS mode of the self-mode `<audio>`
   element (`'anonymous'` | `'use-credentials'` | `null`), also settable with
-  `data-cross-origin`. Resolves [#18](https://github.com/arraypress/waveform-player/issues/18).
+  `data-cross-origin`. Resolves [#18](https://github.com/WaveformPlayer/waveform-player/issues/18).
 
 ### Changed
 
@@ -1071,9 +1071,9 @@ hints are unaffected — they still win before any of this runs.
   scroll). Works in both `self` (calls `seekTo()`) and `external` mode
   (dispatches `waveformplayer:request-seek`, exactly like click-to-seek).
   Addresses WCAG 2.1.1 (Keyboard) and 4.1.2 (Name, Role, Value).
-  Resolves [#8](https://github.com/arraypress/waveform-player/issues/8);
+  Resolves [#8](https://github.com/WaveformPlayer/waveform-player/issues/8);
   upstreamed from WordPress/Gutenberg's external accessibility layer
-  ([#9](https://github.com/arraypress/waveform-player/pull/9)).
+  ([#9](https://github.com/WaveformPlayer/waveform-player/pull/9)).
 
   Two new options: `accessibleSeek` (boolean, default `true` — set
   `false` to opt out and keep the prior markup) and `seekLabel` (string,
@@ -1106,7 +1106,7 @@ hints are unaffected — they still win before any of this runs.
 - **`WaveformPlayer.getPeaksUrl(audioUrl)`** — static helper that
   derives a peaks-JSON URL from an audio URL by swapping the
   extension (`.mp3 / .wav / .ogg / .flac / .m4a / .aac` → `.json`).
-  Pair with [`@arraypress/waveform-gen`](https://github.com/arraypress/waveform-gen)
+  Pair with [`@arraypress/waveform-gen`](https://github.com/WaveformPlayer/waveform-gen)
   to pre-generate peaks at build time and skip the Web Audio decode
   pass at runtime — big perf win on catalogues with many tracks.
 
@@ -1225,7 +1225,7 @@ Fully additive. `audioMode` defaults to `'self'` — every existing instance beh
 }
 ```
 
-Generate config files with [@arraypress/waveform-gen](https://github.com/arraypress/waveform-gen):
+Generate config files with [@arraypress/waveform-gen](https://github.com/WaveformPlayer/waveform-gen):
 
 ```bash
 npx @arraypress/waveform-gen ./audio/*.mp3 --output ./waveforms/
