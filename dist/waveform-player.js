@@ -163,6 +163,8 @@
     setNum("bpm");
     setBool("singlePlay");
     setBool("playOnSeek");
+    setBool("loop");
+    setBool("showLoop");
     if (element.dataset.title) options.title = element.dataset.title;
     if (element.dataset.artist) options.artist = element.dataset.artist;
     if (element.dataset.album) options.album = element.dataset.album;
@@ -185,6 +187,7 @@
     if (element.dataset.errorText) options.errorText = element.dataset.errorText;
     if (element.dataset.playPauseLabel) options.playPauseLabel = element.dataset.playPauseLabel;
     if (element.dataset.speedLabel) options.speedLabel = element.dataset.speedLabel;
+    if (element.dataset.loopLabel) options.loopLabel = element.dataset.loopLabel;
     if (element.dataset.artworkAlt) options.artworkAlt = element.dataset.artworkAlt;
     if (element.dataset.unknownTrackText) options.unknownTrackText = element.dataset.unknownTrackText;
     if (element.dataset.playIcon) options.playIcon = element.dataset.playIcon;
@@ -874,6 +877,11 @@
     bpm: null,
     singlePlay: true,
     playOnSeek: true,
+    // Loop the whole track (self mode: audio.loop, so no `ended` per wrap).
+    // Section loops are set at runtime with setLoop() / loopMarker().
+    loop: false,
+    // A loop toggle button (aria-pressed) in the meta row. Self mode only.
+    showLoop: false,
     enableMediaSession: true,
     // Markers
     markers: [],
@@ -916,6 +924,7 @@
     // screen) title fallback used when no track title is set.
     playPauseLabel: "Play/Pause",
     speedLabel: "Playback speed",
+    loopLabel: "Loop",
     artworkAlt: "Album artwork",
     unknownTrackText: "Unknown Track",
     // Icons (SVG)
@@ -987,7 +996,9 @@
     "showMarkers",
     "accessibleSeek",
     "showPlaybackSpeed",
-    "lazy"
+    "lazy",
+    "loop",
+    "showLoop"
   ];
   var CALLBACKS = [
     "onLoad",
@@ -1078,6 +1089,8 @@
   var ARTWORK_FALLBACK = "data:image/svg+xml," + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="4" fill="#71717a" fill-opacity="0.15"/><g fill="none" stroke="#a1a1aa" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="17" r="2.2"/><circle cx="17" cy="15" r="2.2"/><path d="M10.2 17V7l9-1.6v9"/></g></svg>'
   );
+  var svgIcon = (d) => `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="${d}"/></svg>`;
+  var LOOP_ICON = svgIcon("M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z");
   var SEEK_STEP_SECONDS = 5;
   var SEEK_PAGE_SECONDS = 10;
   var INTERACTIVE_ELEMENTS = 'button, a[href], input, [role="slider"]';
@@ -1383,6 +1396,9 @@
               </div>
             </div>
           ` : ""}
+          ${this.options.showLoop && this.options.audioMode !== "external" ? `
+            <button type="button" class="waveform-ctrl waveform-loop" aria-pressed="${this.options.loop ? "true" : "false"}" aria-label="${escapeHtml(this.options.loopLabel)}">${LOOP_ICON}</button>
+          ` : ""}
           ${this.options.showTime ? `
             <span class="waveform-time">
               <span class="time-current">0:00</span> / <span class="time-total">0:00</span>
@@ -1430,6 +1446,7 @@
       this.markersContainer = this.container.querySelector(".waveform-markers");
       this.speedBtn = this.container.querySelector(".speed-btn");
       this.speedMenu = this.container.querySelector(".speed-menu");
+      this.loopBtn = this.container.querySelector(".waveform-loop");
       this.resizeCanvas();
       this.updateBPMDisplay();
       this._showDuration();
@@ -1595,6 +1612,7 @@
       if (this.options.crossOrigin) {
         this.audio.crossOrigin = this.options.crossOrigin;
       }
+      if (this.options.loop) this.audio.loop = true;
     }
     // ============================================
     // Feature Initialization
@@ -2017,6 +2035,7 @@
       if (this.playBtn) {
         this.playBtn.addEventListener("click", () => this.togglePlay());
       }
+      this.loopBtn?.addEventListener("click", () => this.toggleLoop(), { signal: this._ac.signal });
       if (this.audio) {
         this.audio.addEventListener("loadstart", () => this.setLoading(true));
         this.audio.addEventListener("loadedmetadata", () => this.onMetadataLoaded());
@@ -2035,8 +2054,14 @@
           this._fire("ratechange", { playbackRate: audio.playbackRate });
         });
         audio.addEventListener("volumechange", () => this._fire("volumechange", { volume: audio.volume, muted: audio.muted }));
+        audio.addEventListener("seeking", () => {
+          const r = this._loopRange;
+          if (r && !this._ownSeek && audio.currentTime < r.start) audio.currentTime = r.start;
+          this._ownSeek = false;
+        });
         audio.addEventListener("timeupdate", () => {
           if (this._seekReload) return;
+          this._enforceLoop();
           if (this.isPlaying && Date.now() - this._frameAt > 500) this.updateProgress();
           this.dispatchEvent(new Event("timeupdate"));
         });
@@ -2233,6 +2258,7 @@
       this._cancelCacheSeek?.();
       this._seekReload = null;
       this._pendingSeek = null;
+      if (this._loopRange) this.clearLoop();
       this.progress = 0;
       this.waveformData = [];
       this._extDuration = 0;
@@ -2847,6 +2873,7 @@
      * @fires WaveformPlayer#waveformplayer:timeupdate
      */
     updateProgress() {
+      this._enforceLoop();
       if (!this.audio || !this.audio.duration) return;
       if (this._dragging) return;
       const newProgress = this.audio.currentTime / this.audio.duration;
@@ -3162,6 +3189,7 @@
       const audio = this.audio;
       const seekable = audio.seekable;
       if (!Number.isFinite(audio.duration) || !seekable || seekable.length === 0 || inTimeRanges(seekable, time) || this._seekReloadedUrl === this.options.url) {
+        this._ownSeek = true;
         audio.currentTime = time;
         return;
       }
@@ -3333,6 +3361,92 @@
       this.audio.playbackRate = this.audio.defaultPlaybackRate = clampedRate;
       this.options.playbackRate = clampedRate;
       this.updateSpeedUI();
+    }
+    /**
+     * Turn looping on or off — what the `showLoop` button does. Without an
+     * argument it flips: off when any loop is on (whole track or section),
+     * whole-track looping (the `loop` option) on otherwise. `true` turns
+     * whole-track looping on; `false` turns every loop off, section included.
+     * Self mode only: returns `false` and does nothing in external mode.
+     * @param force - The state to set; omit to flip.
+     * @returns Whether the player now loops.
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    toggleLoop(force) {
+      if (!this.audio) return false;
+      const on = force ?? !(this.options.loop || this._loopRange);
+      this.options.loop = on;
+      if (!on) this._loopRange = null;
+      this._syncLoop();
+      return on;
+    }
+    /**
+     * Loop a section: once the playhead reaches `end` it jumps back to
+     * `start`, seamlessly — the check runs on the progress loop (every frame
+     * while playing) and the seek is the ordinary one. If the playhead is
+     * outside the section, it moves to `start`. An `end` past the track (or
+     * `Infinity`) loops to the end of the track. While a section is set it
+     * wins over whole-track looping; `ended` / `onEnd` never fire inside it.
+     * Per-track: a new track clears it. Self mode only (no-op in external
+     * mode); invalid bounds (`end <= start`, non-numbers) are ignored.
+     * @param start - Section start, seconds.
+     * @param end - Section end, seconds.
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    setLoop(start, end) {
+      const duration = this.getSeekDuration();
+      const s = Math.max(0, Number(start));
+      const e = Math.min(Number(end), duration || Infinity);
+      if (!this.audio || !Number.isFinite(s) || !(e > s)) return;
+      this._loopRange = { start: s, end: e };
+      this._syncLoop();
+      const t = this.getSeekCurrentTime();
+      if (t < s || t >= e) this.seekTo(s);
+    }
+    /**
+     * Stop looping a section ({@link WaveformPlayer#setLoop} /
+     * {@link WaveformPlayer#loopMarker}); whole-track looping, if on, carries on.
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    clearLoop() {
+      if (!this._loopRange) return;
+      this._loopRange = null;
+      this._syncLoop();
+    }
+    /**
+     * Loop from marker `index` (its position in the `markers` option) to the
+     * next marker in time, or to the end of the track if it is the last. See
+     * {@link WaveformPlayer#setLoop}. Ignored for an index with no marker.
+     * @param index - Marker index.
+     */
+    loopMarker(index) {
+      const markers = this.options.markers || [];
+      const marker = markers[index];
+      if (!marker) return;
+      const next = markers.reduce((best, m) => m.time > marker.time && m.time < best ? m.time : best, Infinity);
+      this.setLoop(marker.time, next);
+    }
+    /**
+     * Hold a section loop: past `end`, back to `start`.
+     * @internal
+     */
+    _enforceLoop() {
+      const r = this._loopRange;
+      if (r && this.audio && this.audio.currentTime >= r.end) this._seekAudio(r.start);
+    }
+    /**
+     * Push the loop state to the element (`audio.loop` stays on under a
+     * section loop, so the track can't end inside it) and the toggle button,
+     * and announce it.
+     * @internal
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    _syncLoop() {
+      const on = !!(this.options.loop || this._loopRange);
+      if (this.audio) this.audio.loop = on;
+      this.loopBtn?.setAttribute("aria-pressed", on ? "true" : "false");
+      const r = this._loopRange;
+      this._fire("loop", { loop: !!this.options.loop, start: r ? r.start : null, end: r ? r.end : null });
     }
     /**
      * Tear down the player and release all resources.

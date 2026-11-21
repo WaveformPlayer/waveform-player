@@ -281,6 +281,44 @@ export declare class WaveformPlayer extends EventTarget {
      */
     setPlaybackRate(rate: number): void;
     /**
+     * Turn looping on or off — what the `showLoop` button does. Without an
+     * argument it flips: off when any loop is on (whole track or section),
+     * whole-track looping (the `loop` option) on otherwise. `true` turns
+     * whole-track looping on; `false` turns every loop off, section included.
+     * Self mode only: returns `false` and does nothing in external mode.
+     * @param force - The state to set; omit to flip.
+     * @returns Whether the player now loops.
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    toggleLoop(force?: boolean): boolean;
+    /**
+     * Loop a section: once the playhead reaches `end` it jumps back to
+     * `start`, seamlessly — the check runs on the progress loop (every frame
+     * while playing) and the seek is the ordinary one. If the playhead is
+     * outside the section, it moves to `start`. An `end` past the track (or
+     * `Infinity`) loops to the end of the track. While a section is set it
+     * wins over whole-track looping; `ended` / `onEnd` never fire inside it.
+     * Per-track: a new track clears it. Self mode only (no-op in external
+     * mode); invalid bounds (`end <= start`, non-numbers) are ignored.
+     * @param start - Section start, seconds.
+     * @param end - Section end, seconds.
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    setLoop(start: number, end: number): void;
+    /**
+     * Stop looping a section ({@link WaveformPlayer#setLoop} /
+     * {@link WaveformPlayer#loopMarker}); whole-track looping, if on, carries on.
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    clearLoop(): void;
+    /**
+     * Loop from marker `index` (its position in the `markers` option) to the
+     * next marker in time, or to the end of the track if it is the last. See
+     * {@link WaveformPlayer#setLoop}. Ignored for an index with no marker.
+     * @param index - Marker index.
+     */
+    loopMarker(index: number): void;
+    /**
      * Tear down the player and release all resources.
      *
      * Flags destruction (so in-flight handlers bail), dispatches

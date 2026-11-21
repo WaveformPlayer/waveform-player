@@ -62,6 +62,11 @@ const ARTWORK_FALLBACK = 'data:image/svg+xml,' + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="4" fill="#71717a" fill-opacity="0.15"/><g fill="none" stroke="#a1a1aa" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="17" r="2.2"/><circle cx="17" cy="15" r="2.2"/><path d="M10.2 17V7l9-1.6v9"/></g></svg>'
 );
 
+// Icons for the optional meta-row controls (decorative: each control is named
+// by its aria-label). Material Symbols paths, 24px grid, drawn in currentColor.
+const svgIcon = (d: string) => `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="${d}"/></svg>`;
+const LOOP_ICON = svgIcon('M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z');
+
 // Keyboard seek steps (seconds) for the accessible slider.
 const SEEK_STEP_SECONDS = 5;
 const SEEK_PAGE_SECONDS = 10;
@@ -161,6 +166,9 @@ export class WaveformPlayer extends EventTarget {
     /** @internal */ declare markersContainer: HTMLElement | null;
     /** @internal */ declare speedBtn: HTMLButtonElement | null;
     /** @internal */ declare speedMenu: HTMLElement | null;
+    /** @internal */ declare loopBtn: HTMLButtonElement | null;
+    /** @internal The section loop, if any (see setLoop). */ declare _loopRange: { start: number; end: number } | null;
+    /** @internal The next `seeking` is one the player asked for (not a loop wrap). */ declare _ownSeek: boolean;
     /** @internal */ declare seekEl: HTMLElement | null;
     /** @internal */ declare seekHandleEl: HTMLElement | null;
     /** @internal */ declare hoverTimeEl: HTMLElement | null;
@@ -587,6 +595,9 @@ export class WaveformPlayer extends EventTarget {
               </div>
             </div>
           ` : ''}
+          ${this.options.showLoop && this.options.audioMode !== 'external' ? `
+            <button type="button" class="waveform-ctrl waveform-loop" aria-pressed="${this.options.loop ? 'true' : 'false'}" aria-label="${escapeHtml(this.options.loopLabel)}">${LOOP_ICON}</button>
+          ` : ''}
           ${this.options.showTime ? `
             <span class="waveform-time">
               <span class="time-current">0:00</span> / <span class="time-total">0:00</span>
@@ -645,6 +656,7 @@ export class WaveformPlayer extends EventTarget {
         this.markersContainer = this.container.querySelector<HTMLElement>('.waveform-markers');
         this.speedBtn = this.container.querySelector<HTMLButtonElement>('.speed-btn');
         this.speedMenu = this.container.querySelector<HTMLElement>('.speed-menu');
+        this.loopBtn = this.container.querySelector<HTMLButtonElement>('.waveform-loop');
 
         // Set canvas size
         this.resizeCanvas();
@@ -842,6 +854,7 @@ export class WaveformPlayer extends EventTarget {
         if (this.options.crossOrigin) {
             this.audio.crossOrigin = this.options.crossOrigin;
         }
+        if (this.options.loop) this.audio.loop = true;
     }
 
     // ============================================
@@ -1349,6 +1362,7 @@ export class WaveformPlayer extends EventTarget {
         if (this.playBtn) {
             this.playBtn.addEventListener('click', () => this.togglePlay());
         }
+        this.loopBtn?.addEventListener('click', () => this.toggleLoop(), {signal: this._ac.signal});
 
         // Audio events — only when we own an <audio> element. External
         // mode receives state via setPlayingState() / setProgress() from
@@ -1378,9 +1392,20 @@ export class WaveformPlayer extends EventTarget {
                 this._fire('ratechange', {playbackRate: audio.playbackRate});
             });
             audio.addEventListener('volumechange', () => this._fire('volumechange', {volume: audio.volume, muted: audio.muted}));
+            // A section loop keeps `audio.loop` on, so the media never ends
+            // inside it; if playback does reach the end (the section runs to
+            // the track end, or a background tab's 4Hz clock overshot `end`),
+            // the element wraps to 0 by itself. That seek is the only one the
+            // player didn't ask for — send it to the section start instead.
+            audio.addEventListener('seeking', () => {
+                const r = this._loopRange;
+                if (r && !this._ownSeek && audio.currentTime < r.start) audio.currentTime = r.start;
+                this._ownSeek = false;
+            });
             audio.addEventListener('timeupdate', () => {
                 // Not mid cache-reload: currentTime reads 0 until the seek lands.
                 if (this._seekReload) return;
+                this._enforceLoop();
                 if (this.isPlaying && Date.now() - this._frameAt > 500) this.updateProgress();
                 // The instance event keeps the element's own rate (~4Hz), unlike
                 // the container's per-frame waveformplayer:timeupdate.
@@ -1673,6 +1698,8 @@ export class WaveformPlayer extends EventTarget {
         this._cancelCacheSeek?.();
         this._seekReload = null;
         this._pendingSeek = null;
+        // A section loop belongs to the track it was set on.
+        if (this._loopRange) this.clearLoop();
         this.progress = 0;
         this.waveformData = [];
         this._extDuration = 0;
@@ -2481,6 +2508,8 @@ export class WaveformPlayer extends EventTarget {
      * @fires WaveformPlayer#waveformplayer:timeupdate
      */
     updateProgress() {
+        // A section loop is held every frame, drag or not (a drag is visual).
+        this._enforceLoop();
         // Self-mode only — external mode receives progress via
         // setProgress() from the controller and never calls this.
         if (!this.audio || !this.audio.duration) return;
@@ -2862,6 +2891,7 @@ export class WaveformPlayer extends EventTarget {
             || !seekable || seekable.length === 0
             || inTimeRanges(seekable, time)
             || this._seekReloadedUrl === this.options.url) {
+            this._ownSeek = true;
             audio.currentTime = time;
             return;
         }
@@ -3052,6 +3082,98 @@ export class WaveformPlayer extends EventTarget {
         this.options.playbackRate = clampedRate;
 
         this.updateSpeedUI();
+    }
+
+    /**
+     * Turn looping on or off — what the `showLoop` button does. Without an
+     * argument it flips: off when any loop is on (whole track or section),
+     * whole-track looping (the `loop` option) on otherwise. `true` turns
+     * whole-track looping on; `false` turns every loop off, section included.
+     * Self mode only: returns `false` and does nothing in external mode.
+     * @param force - The state to set; omit to flip.
+     * @returns Whether the player now loops.
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    toggleLoop(force?: boolean): boolean {
+        if (!this.audio) return false;
+        const on = force ?? !(this.options.loop || this._loopRange);
+        this.options.loop = on;
+        if (!on) this._loopRange = null;
+        this._syncLoop();
+        return on;
+    }
+
+    /**
+     * Loop a section: once the playhead reaches `end` it jumps back to
+     * `start`, seamlessly — the check runs on the progress loop (every frame
+     * while playing) and the seek is the ordinary one. If the playhead is
+     * outside the section, it moves to `start`. An `end` past the track (or
+     * `Infinity`) loops to the end of the track. While a section is set it
+     * wins over whole-track looping; `ended` / `onEnd` never fire inside it.
+     * Per-track: a new track clears it. Self mode only (no-op in external
+     * mode); invalid bounds (`end <= start`, non-numbers) are ignored.
+     * @param start - Section start, seconds.
+     * @param end - Section end, seconds.
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    setLoop(start: number, end: number) {
+        const duration = this.getSeekDuration();
+        const s = Math.max(0, Number(start));
+        const e = Math.min(Number(end), duration || Infinity);
+        if (!this.audio || !Number.isFinite(s) || !(e > s)) return;
+        this._loopRange = {start: s, end: e};
+        this._syncLoop();
+        const t = this.getSeekCurrentTime();
+        if (t < s || t >= e) this.seekTo(s);
+    }
+
+    /**
+     * Stop looping a section ({@link WaveformPlayer#setLoop} /
+     * {@link WaveformPlayer#loopMarker}); whole-track looping, if on, carries on.
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    clearLoop() {
+        if (!this._loopRange) return;
+        this._loopRange = null;
+        this._syncLoop();
+    }
+
+    /**
+     * Loop from marker `index` (its position in the `markers` option) to the
+     * next marker in time, or to the end of the track if it is the last. See
+     * {@link WaveformPlayer#setLoop}. Ignored for an index with no marker.
+     * @param index - Marker index.
+     */
+    loopMarker(index: number) {
+        const markers = this.options.markers || [];
+        const marker = markers[index];
+        if (!marker) return;
+        const next = markers.reduce((best: number, m) => (m.time > marker.time && m.time < best ? m.time : best), Infinity);
+        this.setLoop(marker.time, next);
+    }
+
+    /**
+     * Hold a section loop: past `end`, back to `start`.
+     * @internal
+     */
+    _enforceLoop() {
+        const r = this._loopRange;
+        if (r && this.audio && this.audio.currentTime >= r.end) this._seekAudio(r.start);
+    }
+
+    /**
+     * Push the loop state to the element (`audio.loop` stays on under a
+     * section loop, so the track can't end inside it) and the toggle button,
+     * and announce it.
+     * @internal
+     * @fires WaveformPlayer#waveformplayer:loop
+     */
+    _syncLoop() {
+        const on = !!(this.options.loop || this._loopRange);
+        if (this.audio) this.audio.loop = on;
+        this.loopBtn?.setAttribute('aria-pressed', on ? 'true' : 'false');
+        const r = this._loopRange;
+        this._fire('loop', {loop: !!this.options.loop, start: r ? r.start : null, end: r ? r.end : null});
     }
 
     /**

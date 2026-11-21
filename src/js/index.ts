@@ -100,6 +100,7 @@ export type {
     WaveformSeekEventDetail,
     WaveformRateChangeEventDetail,
     WaveformVolumeChangeEventDetail,
+    WaveformLoopEventDetail,
     WaveformTrackDetail,
     WaveformRequestEventDetail,
     WaveformRequestSeekEventDetail,

@@ -494,6 +494,37 @@
     font-weight: 600;
 }
 
+/* Meta-row icon controls (loop, mute, download): quiet until used, like the
+   speed button. A pressed toggle takes the full text colour. */
+.waveform-ctrl {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--wfp-text-secondary-color);
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.2s, background-color 0.2s;
+}
+
+.waveform-ctrl:hover,
+.waveform-ctrl[aria-pressed="true"] {
+    color: var(--wfp-text-color);
+}
+
+.waveform-ctrl[aria-pressed="true"] {
+    background: rgba(127, 127, 127, 0.18);
+}
+
+.waveform-ctrl:focus-visible {
+    outline: 2px solid var(--wfp-accent);
+    outline-offset: 1px;
+}
+
 .waveform-player.waveform-focused {
     outline: 2px solid var(--wfp-accent);
     outline-offset: 2px;

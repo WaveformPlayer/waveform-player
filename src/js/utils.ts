@@ -432,6 +432,8 @@ export function parseDataAttributes(element: HTMLElement): Record<string, any> {
     setNum('bpm');
     setBool('singlePlay');
     setBool('playOnSeek');
+    setBool('loop');
+    setBool('showLoop');
 
     // Content and metadata
     if (element.dataset.title) options.title = element.dataset.title;
@@ -473,6 +475,7 @@ export function parseDataAttributes(element: HTMLElement): Record<string, any> {
     // Localizable UI strings (screen-reader / lock-screen facing)
     if (element.dataset.playPauseLabel) options.playPauseLabel = element.dataset.playPauseLabel;
     if (element.dataset.speedLabel) options.speedLabel = element.dataset.speedLabel;
+    if (element.dataset.loopLabel) options.loopLabel = element.dataset.loopLabel;
     if (element.dataset.artworkAlt) options.artworkAlt = element.dataset.artworkAlt;
     if (element.dataset.unknownTrackText) options.unknownTrackText = element.dataset.unknownTrackText;
 

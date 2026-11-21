@@ -343,6 +343,11 @@ export const DEFAULT_OPTIONS = {
     bpm: null,
     singlePlay: true,
     playOnSeek: true,
+    // Loop the whole track (self mode: audio.loop, so no `ended` per wrap).
+    // Section loops are set at runtime with setLoop() / loopMarker().
+    loop: false,
+    // A loop toggle button (aria-pressed) in the meta row. Self mode only.
+    showLoop: false,
     enableMediaSession: true,
 
     // Markers
@@ -390,6 +395,7 @@ export const DEFAULT_OPTIONS = {
     // screen) title fallback used when no track title is set.
     playPauseLabel: 'Play/Pause',
     speedLabel: 'Playback speed',
+    loopLabel: 'Loop',
     artworkAlt: 'Album artwork',
     unknownTrackText: 'Unknown Track',
 
@@ -503,7 +509,7 @@ const NUMBERS = {
 const BOOLEANS = [
     'autoplay', 'showControls', 'showInfo', 'showTime', 'showHoverTime',
     'seekHandle', 'showBPM', 'singlePlay', 'playOnSeek', 'enableMediaSession',
-    'showMarkers', 'accessibleSeek', 'showPlaybackSpeed', 'lazy'
+    'showMarkers', 'accessibleSeek', 'showPlaybackSpeed', 'lazy', 'loop', 'showLoop'
 ];
 
 /**

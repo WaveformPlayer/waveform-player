@@ -103,6 +103,8 @@ export declare const DEFAULT_OPTIONS: {
     bpm: null;
     singlePlay: boolean;
     playOnSeek: boolean;
+    loop: boolean;
+    showLoop: boolean;
     enableMediaSession: boolean;
     markers: never[];
     showMarkers: boolean;
@@ -117,6 +119,7 @@ export declare const DEFAULT_OPTIONS: {
     errorText: string;
     playPauseLabel: string;
     speedLabel: string;
+    loopLabel: string;
     artworkAlt: string;
     unknownTrackText: string;
     playIcon: string;

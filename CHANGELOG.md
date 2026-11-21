@@ -45,6 +45,14 @@ All notable changes to this project will be documented in this file.
   4Hz); the container's `waveformplayer:timeupdate` still fires every animation
   frame while playing, as in 1.x. `seek`, `ratechange` and `volumechange` come
   from the player's own `<audio>`, so they don't fire in external mode.
+- **Looping.** `loop` (`data-loop`) loops the whole track through the audio
+  element's own `loop`, so the wrap is seamless and `ended` / `onEnd` don't
+  fire on it (the wrap is a seek to 0, so `seek` fires). `setLoop(start, end)`
+  loops a section, `loopMarker(index)` loops from a marker to the next one (or
+  the end), `clearLoop()` stops, and `toggleLoop()` flips looping on or off.
+  `showLoop` (`data-show-loop`) adds a loop toggle button with `aria-pressed`,
+  named by `loopLabel`. Each change fires `loop` / `waveformplayer:loop`.
+  Self mode only; external mode ignores all of it.
 
 ### Changed
 

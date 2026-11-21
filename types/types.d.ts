@@ -230,6 +230,26 @@ export interface WaveformPlayerOptions {
     singlePlay?: boolean;
     /** Start playing when the user seeks. @default true */
     playOnSeek?: boolean;
+    /**
+     * Loop the whole track (`data-loop`). In self mode this is the `<audio>`
+     * element's own `loop`, so the wrap is seamless and `ended` / `onEnd` do not
+     * fire on it; the wrap is a seek to 0, so `seek` fires instead (with
+     * `timeupdate`). Toggle it at runtime with {@link WaveformPlayer.toggleLoop};
+     * loop a section with {@link WaveformPlayer.setLoop} or
+     * {@link WaveformPlayer.loopMarker}. Ignored in `audioMode: 'external'`,
+     * where the controller owns playback.
+     * @default false
+     */
+    loop?: boolean;
+    /**
+     * Show a loop toggle button (`data-show-loop`) in the meta row beside the
+     * time — a real `<button>` with `aria-pressed`, named by `loopLabel`.
+     * Pressing it turns looping off when any loop (track or section) is on, and
+     * whole-track looping on otherwise. Needs `showInfo` (the meta row) and is
+     * not rendered in `audioMode: 'external'`.
+     * @default false
+     */
+    showLoop?: boolean;
     /** Register system Media Session controls (self mode only). @default true */
     enableMediaSession?: boolean;
     /** Chapter markers. @default [] */
@@ -259,6 +279,8 @@ export interface WaveformPlayerOptions {
      * @default 'Playback speed'
      */
     speedLabel?: string;
+    /** Accessible label for the loop toggle (`showLoop`). Localize for non-English UIs. @default 'Loop' */
+    loopLabel?: string;
     title?: string | null;
     artist?: string | null;
     artwork?: string | null;
@@ -320,6 +342,16 @@ export interface WaveformVolumeChangeEventDetail extends WaveformLifecycleEventD
     volume: number;
     muted: boolean;
 }
+/**
+ * `detail` of `waveformplayer:loop`: the loop state after the change. `loop` is
+ * whole-track looping; `start` / `end` are the section loop, or `null` when
+ * there is none (a section wins while it is set).
+ */
+export interface WaveformLoopEventDetail extends WaveformLifecycleEventDetail {
+    loop: boolean;
+    start: number | null;
+    end: number | null;
+}
 /** Track metadata carried by the external-mode `request-*` events. */
 export interface WaveformTrackDetail {
     url: string;
@@ -347,7 +379,7 @@ export interface WaveformRequestSeekEventDetail extends WaveformTrackDetail {
  * so they leave a shadow root. Merged into `HTMLElementEventMap` and
  * `DocumentEventMap`, so `addEventListener('waveformplayer:play', …)` is typed.
  *
- * `seek`, `ratechange` and `volumechange` come from the player's own
+ * `seek`, `ratechange`, `volumechange` and `loop` concern the player's own
  * `<audio>`, so they don't fire in `audioMode: 'external'`; `next` / `previous`
  * fire when the lock-screen controls registered by `onNextTrack` /
  * `onPreviousTrack` are used. `waveformplayer:timeupdate` fires every
@@ -368,6 +400,7 @@ export interface WaveformPlayerEventMap {
     'waveformplayer:seek': CustomEvent<WaveformSeekEventDetail>;
     'waveformplayer:ratechange': CustomEvent<WaveformRateChangeEventDetail>;
     'waveformplayer:volumechange': CustomEvent<WaveformVolumeChangeEventDetail>;
+    'waveformplayer:loop': CustomEvent<WaveformLoopEventDetail>;
     'waveformplayer:request-play': CustomEvent<WaveformRequestEventDetail>;
     'waveformplayer:request-pause': CustomEvent<WaveformRequestEventDetail>;
     'waveformplayer:request-seek': CustomEvent<WaveformRequestSeekEventDetail>;
@@ -385,6 +418,9 @@ export interface WaveformPlayerEventMap {
  *   {@link WaveformPlayer.setProgress}.
  * - `seek`, `ratechange`, `volumechange` — when the player's `<audio>` reports
  *   them; self mode only.
+ * - `loop` — the loop state changed ({@link WaveformPlayer.toggleLoop},
+ *   {@link WaveformPlayer.setLoop}, {@link WaveformPlayer.clearLoop}, a new
+ *   track dropping a section loop); self mode only.
  */
 export interface WaveformPlayerInstanceEventMap {
     load: Event;
@@ -398,6 +434,7 @@ export interface WaveformPlayerInstanceEventMap {
     seek: Event;
     ratechange: Event;
     volumechange: Event;
+    loop: Event;
 }
 /** The helpers exposed as `WaveformPlayer.utils`. */
 export interface WaveformPlayerUtils {
